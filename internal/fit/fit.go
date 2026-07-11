@@ -1,27 +1,32 @@
 // Package fit decodes and encodes FIT files to and from the canonical activity
-// model. Unlike GPX, FIT stores summary messages (session/lap) and cumulative
-// distance directly, so encoding must recompute those to stay consistent with
-// the merged record stream.
+// model.
 //
-// Phase 2 implements this; for now the entry points report that FIT support is
-// pending so the rest of the pipeline can be built and tested against GPX.
+// Unlike GPX, FIT stores summary messages (session/lap) and a cumulative
+// distance on every record, so encoding must recompute those from the merged
+// stream to stay consistent — that is exactly what the stats/merge packages
+// hand us via the Summary passed to Write.
 package fit
 
 import (
-	"errors"
+	"strings"
 
-	"github.com/rinkes/fit-merger/internal/model"
+	"github.com/muktihari/fit/profile/typedef"
 )
 
-// ErrNotImplemented is returned until FIT support lands in Phase 2.
-var ErrNotImplemented = errors.New("fit support not implemented yet (phase 2)")
-
-// Read decodes a FIT file into an Activity.
-func Read(path string) (model.Activity, error) {
-	return model.Activity{}, ErrNotImplemented
-}
-
-// Write encodes an Activity as a FIT file.
-func Write(path string, act model.Activity, summary model.Summary) error {
-	return ErrNotImplemented
+// sportToTypedef maps our free-form sport string (as carried by GPX <type> or a
+// decoded FIT session) to a FIT sport enum. Unknown sports fall back to
+// Generic, which is always valid.
+func sportToTypedef(sport string) typedef.Sport {
+	switch strings.ToLower(strings.TrimSpace(sport)) {
+	case "cycling", "biking", "bike", "road_biking", "9":
+		return typedef.SportCycling
+	case "running", "run", "1":
+		return typedef.SportRunning
+	case "walking", "walk":
+		return typedef.SportWalking
+	case "hiking", "hike":
+		return typedef.SportHiking
+	default:
+		return typedef.SportGeneric
+	}
 }

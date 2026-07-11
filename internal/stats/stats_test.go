@@ -59,7 +59,7 @@ func TestMovingTimeExcludesPause(t *testing.T) {
 	// Three samples in place (no movement) then a long jump.
 	recs := []model.Record{
 		{Time: base, Lat: f(0), Lon: f(0), Altitude: f(100)},
-		{Time: base.Add(60 * time.Second), Lat: f(0), Lon: f(0), Altitude: f(100)},   // stopped 60s
+		{Time: base.Add(60 * time.Second), Lat: f(0), Lon: f(0), Altitude: f(100)},     // stopped 60s
 		{Time: base.Add(70 * time.Second), Lat: f(0), Lon: f(0.001), Altitude: f(100)}, // moving 10s
 	}
 	s := Compute(recs, DefaultOptions())

@@ -13,10 +13,12 @@ several files, a tour recorded day by day) back into one file.
 | Format | Read | Write |
 | ------ | :--: | :---: |
 | GPX    |  ✅  |  ✅   |
-| FIT    |  🚧  |  🚧   |
+| FIT    |  ✅  |  ✅   |
 
-GPX↔GPX merging is complete. FIT support and cross-format merging (FIT+GPX → either)
-are in progress — see [Roadmap](#roadmap).
+All combinations work: GPX and FIT inputs can be freely mixed and written to
+either format. FIT output carries correct stored `session`/`lap` summaries, so
+the merged file shows the right distance, climb and moving time when imported
+into Garmin Connect, Strava, etc.
 
 ## Install
 
@@ -36,6 +38,12 @@ Merge two GPX files, sorted by start time, into one:
 
 ```sh
 fitmerge -o tour.gpx day1.gpx day2.gpx
+```
+
+Mix formats freely — merge a FIT and a GPX file into a FIT:
+
+```sh
+fitmerge -o tour.fit morning.fit afternoon.gpx
 ```
 
 Preview the merged summary without writing anything:
@@ -110,7 +118,7 @@ internal/geo     haversine / 3D distance
 internal/stats   distance, ascent, moving time, speed, HR; part combination
 internal/merge   ordering, overlap handling, distance re-basing
 internal/gpx     GPX 1.1 codec
-internal/fit     FIT codec (in progress)
+internal/fit     FIT codec
 internal/format  extension-based codec dispatch
 ```
 
@@ -118,8 +126,8 @@ internal/format  extension-based codec dispatch
 
 - [x] Canonical model, stats engine, merge engine
 - [x] GPX read/write, GPX↔GPX merge
-- [ ] FIT read/write with re-based distance and recomputed `session`/`lap`
-- [ ] Cross-format merge (FIT+GPX → either)
+- [x] FIT read/write with re-based distance and recomputed `session`/`lap`
+- [x] Cross-format merge (FIT+GPX → either)
 - [ ] FIT timer-event–aware moving time; developer-field preservation
 - [ ] Golden-file tests, release builds
 
