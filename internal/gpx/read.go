@@ -6,6 +6,8 @@ package gpx
 
 import (
 	"fmt"
+	"io"
+	"os"
 	"strconv"
 	"strings"
 
@@ -14,16 +16,33 @@ import (
 	"github.com/darinkes/fit-merger/internal/model"
 )
 
-// Read parses a GPX file into an Activity. Track points become records; heart
-// rate, cadence, temperature and power are pulled from the Garmin
-// TrackPointExtension (and common variants) on a best-effort basis.
-func Read(path string) (model.Activity, error) {
-	g, err := xgpx.ParseFile(path)
+// ReadFile parses a GPX file at path into an Activity, recording the path as
+// the activity's source.
+func ReadFile(path string) (model.Activity, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return model.Activity{}, err
+	}
+	defer f.Close()
+	act, err := Read(f)
 	if err != nil {
 		return model.Activity{}, fmt.Errorf("parse gpx %q: %w", path, err)
 	}
+	act.Sources = []string{path}
+	return act, nil
+}
 
-	act := model.Activity{Sources: []string{path}}
+// Read parses GPX from r into an Activity. Track points become records; heart
+// rate, cadence, temperature and power are pulled from the Garmin
+// TrackPointExtension (and common variants) on a best-effort basis. The caller
+// sets Sources.
+func Read(r io.Reader) (model.Activity, error) {
+	g, err := xgpx.Parse(r)
+	if err != nil {
+		return model.Activity{}, fmt.Errorf("parse gpx: %w", err)
+	}
+
+	var act model.Activity
 	for _, trk := range g.Tracks {
 		if act.Sport == "" {
 			act.Sport = trk.Type

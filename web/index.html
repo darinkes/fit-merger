@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>fitmerge — merge GPX/FIT activities in your browser</title>
+  <style>
+    :root {
+      --bg: #f7f8fa; --card: #ffffff; --fg: #1b1f24; --muted: #5b6570;
+      --border: #e2e6ea; --accent: #2f6fed; --accent-fg: #fff;
+      --ok: #1a7f4b; --err: #c0392b; --code: #f0f2f5;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0e1116; --card: #171b21; --fg: #e6e9ee; --muted: #98a2ad;
+        --border: #262c34; --accent: #4c86f0; --accent-fg: #fff;
+        --ok: #46c884; --err: #ef6b5b; --code: #10141a;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; font: 15px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: var(--bg); color: var(--fg);
+      display: flex; flex-direction: column; align-items: center; padding: 2rem 1rem 4rem;
+    }
+    main { width: 100%; max-width: 720px; }
+    h1 { font-size: 1.6rem; margin: 0 0 .25rem; }
+    h1 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .sub { color: var(--muted); margin: 0 0 1.5rem; }
+    .card {
+      background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+      padding: 1.25rem 1.35rem; margin-bottom: 1.25rem;
+    }
+    label { display: block; font-weight: 600; margin-bottom: .35rem; }
+    .hint { font-weight: 400; color: var(--muted); font-size: .85rem; }
+    input[type=file] {
+      width: 100%; padding: .8rem; border: 1.5px dashed var(--border); border-radius: 10px;
+      background: transparent; color: var(--fg); cursor: pointer;
+    }
+    .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; }
+    .field { margin-top: 1rem; }
+    .field:first-child { margin-top: 0; }
+    select, input[type=number], input[type=text] {
+      width: 100%; padding: .5rem .6rem; border: 1px solid var(--border); border-radius: 8px;
+      background: var(--bg); color: var(--fg); font: inherit;
+    }
+    .row { display: flex; align-items: center; gap: .5rem; }
+    .row input[type=checkbox] { width: 1.1rem; height: 1.1rem; }
+    .row label { margin: 0; }
+    .segmented { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+    .segmented button {
+      border: 0; background: var(--bg); color: var(--fg); padding: .5rem 1.1rem; cursor: pointer; font: inherit;
+    }
+    .segmented button[aria-pressed=true] { background: var(--accent); color: var(--accent-fg); }
+    button.primary {
+      width: 100%; margin-top: 1.25rem; padding: .8rem; font-size: 1rem; font-weight: 600;
+      border: 0; border-radius: 10px; background: var(--accent); color: var(--accent-fg); cursor: pointer;
+    }
+    button.primary:disabled { opacity: .55; cursor: progress; }
+    #status { min-height: 1.2rem; margin-top: .75rem; font-size: .9rem; }
+    #status.err { color: var(--err); }
+    #status.ok { color: var(--ok); }
+    table { width: 100%; border-collapse: collapse; margin-top: .5rem; font-variant-numeric: tabular-nums; }
+    th, td { text-align: right; padding: .35rem .5rem; border-bottom: 1px solid var(--border); }
+    th:first-child, td:first-child { text-align: left; }
+    thead th { color: var(--muted); font-weight: 600; font-size: .82rem; }
+    tfoot td { font-weight: 700; border-top: 2px solid var(--border); }
+    .result-actions { margin-top: 1rem; display: flex; gap: .75rem; flex-wrap: wrap; }
+    a.download {
+      display: inline-block; padding: .6rem 1.1rem; border-radius: 9px; text-decoration: none;
+      background: var(--ok); color: #fff; font-weight: 600;
+    }
+    .hidden { display: none; }
+    footer { color: var(--muted); font-size: .85rem; margin-top: 1rem; text-align: center; }
+    footer a { color: var(--accent); }
+    code { background: var(--code); padding: .1rem .35rem; border-radius: 5px; font-size: .85em; }
+  </style>
+</head>
+<body class="loading">
+  <main>
+    <h1><span class="mono">fitmerge</span></h1>
+    <p class="sub">Merge two or more GPX/FIT activities into one — distance, ascent, moving
+      time and speed recomputed. Runs entirely in your browser; your files never leave this page.</p>
+
+    <div class="card">
+      <div class="field">
+        <label for="files">Activity files
+          <span class="hint">— pick 2+ <code>.gpx</code>/<code>.fit</code> files (any mix)</span>
+        </label>
+        <input id="files" type="file" accept=".gpx,.fit" multiple>
+      </div>
+
+      <div class="field">
+        <label>Output format</label>
+        <div class="segmented" id="format" role="group" aria-label="Output format">
+          <button type="button" data-fmt="gpx" aria-pressed="true">GPX</button>
+          <button type="button" data-fmt="fit" aria-pressed="false">FIT</button>
+        </div>
+      </div>
+
+      <div class="field grid">
+        <div>
+          <label for="overlap">Time overlap</label>
+          <select id="overlap">
+            <option value="error" selected>Error (safest)</option>
+            <option value="trim">Trim later file</option>
+            <option value="keep">Keep both</option>
+          </select>
+        </div>
+        <div>
+          <label for="sport">Sport <span class="hint">(optional)</span></label>
+          <input id="sport" type="text" placeholder="e.g. cycling">
+        </div>
+        <div>
+          <label for="ascent">Ascent threshold (m)</label>
+          <input id="ascent" type="number" value="3" min="0" step="0.5">
+        </div>
+        <div>
+          <label for="moving">Moving threshold (m/s)</label>
+          <input id="moving" type="number" value="0.5" min="0" step="0.1">
+        </div>
+      </div>
+
+      <div class="field row"><input id="sort" type="checkbox" checked><label for="sort">Order inputs by start time</label></div>
+      <div class="field row"><input id="use3d" type="checkbox"><label for="use3d">Include elevation in distance (3D)</label></div>
+
+      <button id="merge" class="primary" disabled>Loading…</button>
+      <div id="status"></div>
+    </div>
+
+    <div id="result" class="card hidden">
+      <label>Merged summary</label>
+      <table id="summary">
+        <thead>
+          <tr><th>Part</th><th>Distance</th><th>↑ Ascent</th><th>↓ Descent</th><th>Moving</th><th>Elapsed</th><th>Avg</th><th>Max</th></tr>
+        </thead>
+        <tbody id="parts"></tbody>
+        <tfoot><tr id="total"></tr></tfoot>
+      </table>
+      <div class="result-actions"><a id="download" class="download" download>Download</a></div>
+    </div>
+
+    <footer>
+      Powered by WebAssembly ·
+      <a href="https://github.com/darinkes/fit-merger">source on GitHub</a> ·
+      <span id="version"></span>
+    </footer>
+  </main>
+
+  <script src="wasm_exec.js"></script>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const statusEl = $("status");
+    const mergeBtn = $("merge");
+    let outputFormat = "gpx";
+    let downloadURL = null;
+
+    // Output-format segmented control.
+    $("format").querySelectorAll("button").forEach((b) => {
+      b.addEventListener("click", () => {
+        outputFormat = b.dataset.fmt;
+        $("format").querySelectorAll("button").forEach((x) =>
+          x.setAttribute("aria-pressed", x === b));
+      });
+    });
+
+    function setStatus(msg, kind) {
+      statusEl.textContent = msg || "";
+      statusEl.className = kind || "";
+    }
+
+    // --- formatting helpers ---
+    const fmtDur = (s) => {
+      s = Math.round(s);
+      const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+      return `${h}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+    };
+    const km = (m) => (m / 1000).toFixed(2) + " km";
+    const kmh = (ms) => (ms * 3.6).toFixed(1);
+
+    function rowCells(label, s) {
+      return `<td>${label}</td><td>${km(s.distance_m)}</td><td>${Math.round(s.ascent_m)}</td>` +
+        `<td>${Math.round(s.descent_m)}</td><td>${fmtDur(s.moving_s)}</td><td>${fmtDur(s.elapsed_s)}</td>` +
+        `<td>${kmh(s.avg_speed_ms)}</td><td>${kmh(s.max_speed_ms)}</td>`;
+    }
+
+    function renderResult(res) {
+      $("parts").innerHTML = res.parts
+        .map((p, i) => `<tr>${rowCells("part " + (i + 1), p)}</tr>`).join("");
+      $("total").innerHTML = rowCells("TOTAL", res.summary);
+      $("result").classList.remove("hidden");
+
+      if (downloadURL) URL.revokeObjectURL(downloadURL);
+      const mime = res.filename.endsWith(".fit") ? "application/octet-stream" : "application/gpx+xml";
+      downloadURL = URL.createObjectURL(new Blob([res.data], { type: mime }));
+      const dl = $("download");
+      dl.href = downloadURL;
+      dl.download = res.filename;
+      dl.textContent = "Download " + res.filename;
+    }
+
+    async function doMerge() {
+      const files = [...$("files").files];
+      if (files.length === 0) { setStatus("Pick at least one file.", "err"); return; }
+
+      mergeBtn.disabled = true;
+      setStatus("Merging…");
+      try {
+        const inputs = await Promise.all(files.map(async (f) => ({
+          name: f.name,
+          data: new Uint8Array(await f.arrayBuffer()),
+        })));
+        const res = fitmerge.merge(inputs, {
+          format: outputFormat,
+          sort: $("sort").checked,
+          overlap: $("overlap").value,
+          ascentThreshold: parseFloat($("ascent").value) || 0,
+          movingThreshold: parseFloat($("moving").value) || 0,
+          use3d: $("use3d").checked,
+          sport: $("sport").value.trim(),
+        });
+        if (!res.ok) { setStatus(res.error, "err"); return; }
+        renderResult(res);
+        setStatus(`Merged ${files.length} file(s) → ${res.summary.records} records.`, "ok");
+      } catch (e) {
+        setStatus("Error: " + e.message, "err");
+      } finally {
+        mergeBtn.disabled = false;
+      }
+    }
+
+    // --- wasm bootstrap ---
+    window.onFitmergeReady = () => {
+      document.body.classList.remove("loading");
+      mergeBtn.disabled = false;
+      mergeBtn.textContent = "Merge";
+      $("version").textContent = "fitmerge " + fitmerge.version;
+      setStatus("Ready.");
+    };
+    mergeBtn.addEventListener("click", doMerge);
+
+    (async () => {
+      try {
+        const go = new Go();
+        const buf = await (await fetch("fitmerge.wasm")).arrayBuffer();
+        const { instance } = await WebAssembly.instantiate(buf, go.importObject);
+        go.run(instance); // blocks in Go; onFitmergeReady fires once the API is set
+      } catch (e) {
+        setStatus("Failed to load WebAssembly module: " + e.message, "err");
+      }
+    })();
+  </script>
+</body>
+</html>

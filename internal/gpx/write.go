@@ -2,6 +2,7 @@ package gpx
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 
@@ -16,17 +17,30 @@ const tpxNS = "http://www.garmin.com/xmlschemas/TrackPointExtension/v1"
 // Creator is written to the GPX <gpx creator="..."> attribute.
 const Creator = "fit-merger (https://github.com/darinkes/fit-merger)"
 
-// Write encodes an Activity as GPX 1.1 to path. Each lap becomes its own track
+// WriteFile encodes an Activity as GPX 1.1 to path.
+func WriteFile(path string, act model.Activity) error {
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	if err := Write(f, act); err != nil {
+		return fmt.Errorf("write gpx %q: %w", path, err)
+	}
+	return nil
+}
+
+// Write encodes an Activity as GPX 1.1 to w. Each lap becomes its own track
 // segment, which represents the pause between merged files; if the activity has
 // no laps, all records go into a single segment.
-func Write(path string, act model.Activity) error {
+func Write(w io.Writer, act model.Activity) error {
 	g := build(act)
 	data, err := xgpx.ToXml(g, xgpx.ToXmlParams{Version: "1.1", Indent: true})
 	if err != nil {
 		return fmt.Errorf("encode gpx: %w", err)
 	}
-	if err := os.WriteFile(path, data, 0o644); err != nil {
-		return fmt.Errorf("write gpx %q: %w", path, err)
+	if _, err := w.Write(data); err != nil {
+		return err
 	}
 	return nil
 }

@@ -39,12 +39,12 @@ func TestRoundTrip(t *testing.T) {
 	}
 
 	path := filepath.Join(t.TempDir(), "out.fit")
-	if err := Write(path, act, sum); err != nil {
+	if err := WriteFile(path, act, sum); err != nil {
 		t.Fatal(err)
 	}
 
 	// The record stream survives the binary round-trip.
-	got, err := Read(path)
+	got, err := ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}

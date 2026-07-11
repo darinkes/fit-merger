@@ -78,6 +78,39 @@ func TestRoundTripEachFormat(t *testing.T) {
 	}
 }
 
+// TestDecodeEncodeBytes exercises the in-memory byte API that the WebAssembly
+// build calls (no filesystem), mirroring the file round-trip above.
+func TestDecodeEncodeBytes(t *testing.T) {
+	res := mergeInputs(t)
+	want := res.Summary
+
+	for _, kind := range []format.Kind{format.GPX, format.FIT} {
+		t.Run(string(kind), func(t *testing.T) {
+			data, err := format.Encode(kind, res.Activity, res.Summary)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(data) == 0 {
+				t.Fatal("Encode returned no bytes")
+			}
+			back, err := format.Decode(data, kind)
+			if err != nil {
+				t.Fatal(err)
+			}
+			got := stats.Compute(back.Records, stats.DefaultOptions())
+			if math.Abs(got.TotalDistance-want.TotalDistance) > 1.0 {
+				t.Errorf("distance = %.2f, want %.2f", got.TotalDistance, want.TotalDistance)
+			}
+			if got.TotalAscent != want.TotalAscent {
+				t.Errorf("ascent = %.0f, want %.0f", got.TotalAscent, want.TotalAscent)
+			}
+			if got.MaxHR != want.MaxHR {
+				t.Errorf("maxHR = %d, want %d", got.MaxHR, want.MaxHR)
+			}
+		})
+	}
+}
+
 // TestGapPreservedAsElapsedNotMoving guards the core concatenation semantic:
 // the 10-minute gap between the two sample files counts as elapsed time but not
 // moving time or distance.

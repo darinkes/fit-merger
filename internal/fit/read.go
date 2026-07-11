@@ -2,6 +2,7 @@ package fit
 
 import (
 	"fmt"
+	"io"
 	"math"
 	"os"
 
@@ -14,23 +15,34 @@ import (
 	"github.com/darinkes/fit-merger/internal/model"
 )
 
-// Read decodes a FIT activity file into an Activity. Record messages become the
-// record stream; the source file's stored session/lap summaries are ignored
-// because they are recomputed from the merged points on the way out.
-func Read(path string) (model.Activity, error) {
+// ReadFile decodes a FIT activity file at path, recording the path as the
+// activity's source.
+func ReadFile(path string) (model.Activity, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return model.Activity{}, err
 	}
 	defer f.Close()
-
-	fit, err := decoder.New(f).Decode()
+	act, err := Read(f)
 	if err != nil {
 		return model.Activity{}, fmt.Errorf("decode fit %q: %w", path, err)
 	}
+	act.Sources = []string{path}
+	return act, nil
+}
+
+// Read decodes a FIT activity from r into an Activity. Record messages become
+// the record stream; the source file's stored session/lap summaries are ignored
+// because they are recomputed from the merged points on the way out. The caller
+// sets Sources.
+func Read(r io.Reader) (model.Activity, error) {
+	fit, err := decoder.New(r).Decode()
+	if err != nil {
+		return model.Activity{}, fmt.Errorf("decode fit: %w", err)
+	}
 
 	a := filedef.NewActivity(fit.Messages...)
-	act := model.Activity{Sources: []string{path}}
+	var act model.Activity
 	if len(a.Sessions) > 0 {
 		act.Sport = a.Sessions[0].Sport.String()
 	} else if len(a.Sports) > 0 {

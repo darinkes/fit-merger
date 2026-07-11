@@ -2,6 +2,7 @@ package fit
 
 import (
 	"fmt"
+	"io"
 	"math"
 	"os"
 
@@ -13,22 +14,32 @@ import (
 	"github.com/darinkes/fit-merger/internal/model"
 )
 
-// Write encodes an Activity as a FIT activity file. The passed summary supplies
-// the recomputed session/activity aggregates; per-lap aggregates come from the
-// activity's laps. Distance is taken from each record's (already re-based)
-// cumulative Distance field so the record stream and the session total agree.
-func Write(path string, act model.Activity, summary model.Summary) error {
-	a := buildActivity(act, summary)
-	fit := a.ToFIT(nil)
-
+// WriteFile encodes an Activity as a FIT activity file at path.
+func WriteFile(path string, act model.Activity, summary model.Summary) error {
 	f, err := os.Create(path)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
-
-	if err := encoder.New(f).Encode(&fit); err != nil {
+	if err := Write(f, act, summary); err != nil {
 		return fmt.Errorf("encode fit %q: %w", path, err)
+	}
+	return nil
+}
+
+// Write encodes an Activity as a FIT activity to w. The passed summary supplies
+// the recomputed session/activity aggregates; per-lap aggregates come from the
+// activity's laps. Distance is taken from each record's (already re-based)
+// cumulative Distance field so the record stream and the session total agree.
+//
+// A plain io.Writer (e.g. a bytes.Buffer, as the wasm build uses) is fine: the
+// encoder pre-computes the header size and CRC in one pass rather than seeking
+// back to backfill them.
+func Write(w io.Writer, act model.Activity, summary model.Summary) error {
+	a := buildActivity(act, summary)
+	fit := a.ToFIT(nil)
+	if err := encoder.New(w).Encode(&fit); err != nil {
+		return fmt.Errorf("encode fit: %w", err)
 	}
 	return nil
 }
