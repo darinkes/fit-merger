@@ -1,25 +1,15 @@
 # Deploying the web UI
 
-The browser version (WebAssembly + `web/index.html`) is built and ready. Hosting
-is **on hold**: GitHub Pages needs a **public** repo on the free plan, or GitHub
-Pro for a private one. `pages.yml` lives here (inert) rather than in
-`.github/workflows/` so it doesn't run until you activate it.
+The browser version (WebAssembly + `web/index.html`) is **live** at
+<https://darinkes.github.io/fit-merger/>.
 
-## Go live on GitHub Pages (when ready)
+Deployment is handled by `.github/workflows/pages.yml`: on every push to `main`
+it builds `web/fitmerge.wasm`, copies Go's `wasm_exec.js`, and publishes the
+`web/` directory to GitHub Pages. Nothing runs server-side — the merge happens
+entirely in the visitor's browser.
 
-1. Make the repo public (Settings → General → Danger Zone) **or** upgrade to GitHub Pro.
-2. Enable Pages with the GitHub Actions source:
-   ```sh
-   gh api --method POST repos/darinkes/fit-merger/pages -f build_type=workflow
-   ```
-3. Activate the workflow and push:
-   ```sh
-   git mv deploy/pages.yml .github/workflows/pages.yml
-   git commit -m "Enable Pages deploy" && git push
-   ```
-
-It publishes to `https://darinkes.github.io/fit-merger/` and redeploys on every
-push to `main`.
+Prerequisites (already done): the repo is public and Pages is set to the
+"GitHub Actions" build source.
 
 ## Run it locally (works today, no hosting needed)
 

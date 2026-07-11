@@ -8,6 +8,9 @@ totals faithfully describe the combined track.
 Typical use: stitching a multi-part or multi-day activity (a ride split across
 several files, a tour recorded day by day) back into one file.
 
+**🌐 Try it in your browser (no install): <https://darinkes.github.io/fit-merger/>**
+— the same engine compiled to WebAssembly; your files never leave the page.
+
 ## Status
 
 | Format | Read | Write |
