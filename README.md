@@ -177,9 +177,12 @@ web/               static browser UI (index.html) served with the wasm build
   start/stop events record exactly when the device considered the athlete active,
   so moving time is summed from those spans. Inputs without them (GPX, or FIT
   files that record none) fall back to the `-moving-threshold` speed estimate.
-- **FIT developer (custom) fields are not carried across.** Standard record
-  fields — position, altitude, distance, speed, HR, cadence, power,
-  temperature — are preserved.
+- **FIT developer (custom) fields are not carried across — by design.** The
+  canonical model is deliberately standard-fields-only — position, altitude,
+  distance, speed, HR, cadence, power, temperature — which is what keeps the
+  format-agnostic merge simple. Developer fields are FIT-specific custom metrics;
+  when two merged inputs define the same field differently there is no
+  unambiguous way to combine them, so they are dropped rather than guessed at.
 - **The recording device is preserved.** A merged FIT keeps the original
   manufacturer, product, product name and serial number from the first FIT
   input that has them; a GPX-only merge is stamped with a neutral `development`
@@ -187,7 +190,7 @@ web/               static browser UI (index.html) served with the wasm build
 - **Overlapping inputs** are an error by default; choose `-overlap=trim` or
   `-overlap=keep` to decide explicitly.
 
-## Roadmap
+## Milestones
 
 - [x] Canonical model, stats engine, merge engine
 - [x] GPX read/write, GPX↔GPX merge
@@ -196,7 +199,9 @@ web/               static browser UI (index.html) served with the wasm build
 - [x] Cross-compiled release binaries + in-browser (WebAssembly) UI
 - [x] Golden-file tests for the merged GPX/FIT wire output
 - [x] FIT timer-event–aware moving time
-- [ ] FIT developer-field preservation
+
+FIT developer-field preservation is intentionally out of scope — see
+[Notes & limitations](#notes--limitations).
 
 ## License
 

@@ -94,6 +94,15 @@ FIT/GPX ──decode──▶ model.Activity ──merge + recompute──▶ Ac
 - **The recording device is preserved** through a merge (first FIT input that has
   one wins); GPX-only merges get a neutral `development` identity. See
   `model.Device.IsZero`.
+- **Moving time honors FIT timer events when present.** `fit.Read` turns timer
+  start/stop events into `Activity.Active` spans; `merge` computes a part's moving
+  time from `stats.MovingTimeFromSpans` when those spans exist, else falls back to
+  the `-moving-threshold` speed estimate. GPX has no spans.
+- **Keep `internal/model` format-agnostic.** It imports only `time` on purpose.
+  Do not pull a codec library (e.g. `muktihari/fit/proto`) into it. This is why
+  FIT developer (custom) fields are intentionally *not* preserved — see the README
+  limitations. If that ever changes, it's a deliberate design decision, not a
+  drive-by import.
 
 ## Tunable definitions (`stats.Options`)
 
@@ -101,7 +110,8 @@ Two figures are matters of definition, not measurement, and are exposed as flags
 - `AscentThreshold` (`-ascent-threshold`, default 3 m): hysteresis that suppresses
   GPS altitude jitter before counting climb. This is why tools disagree on ascent.
 - `MovingSpeedThreshold` (`-moving-threshold`, default 0.5 m/s): below this, time
-  is a pause and excluded from moving time.
+  is a pause and excluded from moving time. Only used when the input has no FIT
+  timer events; those take precedence (see the moving-time invariant above).
 - `Use3D` (`-3d`): include the vertical component in distance.
 
 ## Conventions
@@ -115,6 +125,10 @@ Two figures are matters of definition, not measurement, and are exposed as flags
 - The wasm package can't be run under `go test`, so any logic worth testing (e.g.
   polyline downsampling) lives in a normal package like `internal/preview` and is
   tested there.
+- **Golden files** (`testdata/golden/merged.{gpx,fit}`) pin the exact merged wire
+  output. After an *intentional* change to a codec's output, regenerate and review
+  the diff: `go test ./internal/format -update`. `*.fit` is marked `binary` in
+  `.gitattributes` so EOL normalization can't corrupt it.
 - Version is injected via `-ldflags "-X main.version=..."` (from `git describe`);
   `go install` builds fall back to the module version.
 
