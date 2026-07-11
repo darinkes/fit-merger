@@ -205,4 +205,4 @@ FIT developer-field preservation is intentionally out of scope — see
 
 ## License
 
-TBD.
+[MIT](LICENSE) © Stefan Rinkes
