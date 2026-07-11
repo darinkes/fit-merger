@@ -10,6 +10,7 @@ import (
 	"github.com/muktihari/fit/decoder"
 	"github.com/muktihari/fit/profile/filedef"
 	"github.com/muktihari/fit/profile/mesgdef"
+	"github.com/muktihari/fit/profile/typedef"
 
 	"github.com/darinkes/fit-merger/internal/model"
 	"github.com/darinkes/fit-merger/internal/stats"
@@ -83,6 +84,115 @@ func TestRoundTrip(t *testing.T) {
 	if sess.MaxHeartRate != sum.MaxHR {
 		t.Errorf("stored session maxHR = %d, want %d", sess.MaxHeartRate, sum.MaxHR)
 	}
+}
+
+// TestTimerEventsBracketParts verifies that a merged, multi-part activity is
+// written with a timer start/stop_all pair around each part, so the gap between
+// parts (e.g. a lunch stop) reads as an explicit recording pause rather than a
+// naked hole in the record stream.
+func TestTimerEventsBracketParts(t *testing.T) {
+	base := time.Date(2026, 7, 1, 8, 0, 0, 0, time.UTC)
+	part := func(start time.Time) ([]model.Record, model.Summary) {
+		var recs []model.Record
+		for i := 0; i < 5; i++ {
+			recs = append(recs, model.Record{
+				Time:     start.Add(time.Duration(i) * 10 * time.Second),
+				Lat:      f(47.0),
+				Lon:      f(8.0 + 0.001*float64(i)),
+				Distance: f(76 * float64(i)),
+			})
+		}
+		return recs, stats.Compute(recs, stats.DefaultOptions())
+	}
+
+	// Two parts an hour apart: the gap stands in for a lunch break.
+	recsA, sumA := part(base)
+	recsB, sumB := part(base.Add(time.Hour))
+
+	all := append(append([]model.Record{}, recsA...), recsB...)
+	act := model.Activity{
+		Sport:   "cycling",
+		Records: all,
+		Laps: []model.Lap{
+			{StartTime: sumA.StartTime, EndTime: sumA.EndTime, Summary: sumA},
+			{StartTime: sumB.StartTime, EndTime: sumB.EndTime, Summary: sumB},
+		},
+	}
+
+	path := filepath.Join(t.TempDir(), "out.fit")
+	if err := WriteFile(path, act, stats.Compute(all, stats.DefaultOptions())); err != nil {
+		t.Fatal(err)
+	}
+
+	events := decodeEvents(t, path)
+	// Expect start, stop_all, start, stop_all — bracketing each of the two parts.
+	want := []struct {
+		et typedef.EventType
+		ts time.Time
+	}{
+		{typedef.EventTypeStart, sumA.StartTime},
+		{typedef.EventTypeStopAll, sumA.EndTime},
+		{typedef.EventTypeStart, sumB.StartTime},
+		{typedef.EventTypeStopAll, sumB.EndTime},
+	}
+	if len(events) != len(want) {
+		t.Fatalf("got %d timer events, want %d", len(events), len(want))
+	}
+	for i, w := range want {
+		e := events[i]
+		if e.Event != typedef.EventTimer {
+			t.Errorf("event %d: event = %v, want timer", i, e.Event)
+		}
+		if e.EventType != w.et {
+			t.Errorf("event %d: event_type = %v, want %v", i, e.EventType, w.et)
+		}
+		if !e.Timestamp.Equal(w.ts) {
+			t.Errorf("event %d: timestamp = %s, want %s", i, e.Timestamp, w.ts)
+		}
+	}
+
+	// A merge is written as a single lap spanning the whole activity, no matter
+	// how many parts were combined — the part boundaries live in the events.
+	if n := decodeLapCount(t, path); n != 1 {
+		t.Errorf("laps = %d, want 1", n)
+	}
+}
+
+// decodeLapCount returns how many lap messages the file contains.
+func decodeLapCount(t *testing.T, path string) int {
+	t.Helper()
+	fp, err := os.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer fp.Close()
+	fit, err := decoder.New(fp).Decode()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return len(filedef.NewActivity(fit.Messages...).Laps)
+}
+
+// decodeEvents returns the file's timer events in encoded (timestamp) order.
+func decodeEvents(t *testing.T, path string) []*mesgdef.Event {
+	t.Helper()
+	fp, err := os.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer fp.Close()
+	fit, err := decoder.New(fp).Decode()
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := filedef.NewActivity(fit.Messages...)
+	var timers []*mesgdef.Event
+	for _, e := range a.Events {
+		if e.Event == typedef.EventTimer {
+			timers = append(timers, e)
+		}
+	}
+	return timers
 }
 
 func decodeSession(t *testing.T, path string) *mesgdef.Session {

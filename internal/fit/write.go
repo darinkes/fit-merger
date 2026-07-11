@@ -5,6 +5,7 @@ import (
 	"io"
 	"math"
 	"os"
+	"time"
 
 	"github.com/muktihari/fit/encoder"
 	"github.com/muktihari/fit/profile/filedef"
@@ -53,14 +54,27 @@ func buildActivity(act model.Activity, s model.Summary) *filedef.Activity {
 		a.Records = append(a.Records, recordFromModel(r))
 	}
 
-	// One lap message per merged part.
+	// The merged parts, as bounded by the source laps; fall back to the whole
+	// activity when the merge set none (e.g. a single-file convert).
+	parts := make([]model.Summary, 0, len(act.Laps))
 	for _, lap := range act.Laps {
-		a.Laps = append(a.Laps, lapFromSummary(lap.Summary))
+		parts = append(parts, lap.Summary)
 	}
-	// Fall back to a single lap spanning the whole activity if none were set.
-	if len(a.Laps) == 0 {
-		a.Laps = append(a.Laps, lapFromSummary(s))
+	if len(parts) == 0 {
+		parts = append(parts, s)
 	}
+
+	// Bracket each part with timer start/stop_all events so the gaps between
+	// merged parts read as ordinary recording pauses (e.g. a lunch stop) rather
+	// than an unexplained hole in the record stream. Importers such as Strava
+	// can otherwise crop or split the activity at a naked gap, which would drop
+	// the merged distance below the original ride's total.
+	a.Events = timerEvents(parts)
+
+	// Always report a single lap spanning the whole activity: a merge yields one
+	// continuous effort, not one lap per input file. The per-part boundaries
+	// survive as the timer events above.
+	a.Laps = append(a.Laps, lapFromSummary(s))
 
 	a.Sessions = append(a.Sessions, sessionFromSummary(act, s, len(a.Laps)))
 
@@ -176,6 +190,29 @@ func lapFromSummary(s model.Summary) *mesgdef.Lap {
 		m.SetAvgHeartRate(s.AvgHR).SetMaxHeartRate(s.MaxHR)
 	}
 	return m
+}
+
+// timerEvents builds the timer start/stop_all pairs that bracket each part of
+// the activity. A device emits a timer `start` when recording begins or resumes
+// and a `stop_all` when it pauses or ends, so for two merged parts the sequence
+// is start, stop_all, start, stop_all — turning the inter-part gap into an
+// explicit pause. The encoder interleaves these with the records by timestamp.
+func timerEvents(parts []model.Summary) []*mesgdef.Event {
+	events := make([]*mesgdef.Event, 0, len(parts)*2)
+	for _, p := range parts {
+		events = append(events,
+			timerEvent(p.StartTime, typedef.EventTypeStart),
+			timerEvent(p.EndTime, typedef.EventTypeStopAll),
+		)
+	}
+	return events
+}
+
+func timerEvent(t time.Time, et typedef.EventType) *mesgdef.Event {
+	return mesgdef.NewEvent(nil).
+		SetTimestamp(t).
+		SetEvent(typedef.EventTimer).
+		SetEventType(et)
 }
 
 func firstPosition(recs []model.Record) (lat, lon float64, ok bool) {
