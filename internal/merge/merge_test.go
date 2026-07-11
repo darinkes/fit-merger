@@ -135,6 +135,25 @@ func TestMergeRejectsMissingTimestamps(t *testing.T) {
 	}
 }
 
+func TestMergeCarriesDevice(t *testing.T) {
+	base := time.Date(2026, 7, 1, 8, 0, 0, 0, time.UTC)
+	early := track("early", base, 3) // no device, sorts first
+	late := track("late", base.Add(time.Hour), 3)
+	late.Device = &model.Device{Manufacturer: 1, Product: 3121}
+
+	res, err := Merge([]model.Activity{early, late}, defaults())
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The device is kept from the first input that has one, regardless of order.
+	if res.Activity.Device == nil {
+		t.Fatal("merged activity dropped the device")
+	}
+	if res.Activity.Device.Manufacturer != 1 || res.Activity.Device.Product != 3121 {
+		t.Errorf("device = %+v, want {Manufacturer:1 Product:3121}", *res.Activity.Device)
+	}
+}
+
 func TestMergeOverlapErrors(t *testing.T) {
 	base := time.Date(2026, 7, 1, 8, 0, 0, 0, time.UTC)
 	a := track("a", base, 5)

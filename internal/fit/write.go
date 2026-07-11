@@ -46,10 +46,8 @@ func Write(w io.Writer, act model.Activity, summary model.Summary) error {
 
 func buildActivity(act model.Activity, s model.Summary) *filedef.Activity {
 	a := filedef.NewActivity()
-	a.FileId.SetType(typedef.FileActivity).
-		SetManufacturer(typedef.ManufacturerDevelopment).
-		SetProduct(1).
-		SetTimeCreated(s.StartTime)
+	a.FileId.SetType(typedef.FileActivity).SetTimeCreated(s.StartTime)
+	applyDevice(&a.FileId, act.Device)
 
 	for _, r := range act.Records {
 		a.Records = append(a.Records, recordFromModel(r))
@@ -76,6 +74,31 @@ func buildActivity(act model.Activity, s model.Summary) *filedef.Activity {
 		SetLocalTimestamp(s.EndTime)
 
 	return a
+}
+
+// applyDevice writes the source device's identity onto the file_id, preserving
+// the original manufacturer/product through a merge. When no device is known
+// (e.g. a GPX-only input), it stamps a neutral "development" identity so the
+// file is still valid.
+func applyDevice(id *mesgdef.FileId, dev *model.Device) {
+	if dev == nil || (dev.Manufacturer == 0 && dev.Product == 0 && dev.ProductName == "" && dev.SerialNumber == 0) {
+		id.SetManufacturer(typedef.ManufacturerDevelopment).SetProduct(1)
+		return
+	}
+	if dev.Manufacturer != 0 {
+		id.SetManufacturer(typedef.Manufacturer(dev.Manufacturer))
+	} else {
+		id.SetManufacturer(typedef.ManufacturerDevelopment)
+	}
+	if dev.Product != 0 {
+		id.SetProduct(dev.Product)
+	}
+	if dev.ProductName != "" {
+		id.SetProductName(dev.ProductName)
+	}
+	if dev.SerialNumber != 0 {
+		id.SetSerialNumber(dev.SerialNumber)
+	}
 }
 
 func recordFromModel(r model.Record) *mesgdef.Record {

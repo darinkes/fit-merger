@@ -48,6 +48,7 @@ func Read(r io.Reader) (model.Activity, error) {
 	} else if len(a.Sports) > 0 {
 		act.Sport = a.Sports[0].Sport.String()
 	}
+	act.Device = deviceFromFileID(&a.FileId)
 
 	for _, r := range a.Records {
 		act.Records = append(act.Records, recordToModel(r))
@@ -59,6 +60,33 @@ func Read(r io.Reader) (model.Activity, error) {
 		})
 	}
 	return act, nil
+}
+
+// deviceFromFileID lifts the recording device's identity out of a FIT file_id
+// message, normalizing FIT "invalid" sentinels to zero. Returns nil when the
+// file carries no manufacturer or product.
+func deviceFromFileID(id *mesgdef.FileId) *model.Device {
+	manu := uint16(id.Manufacturer)
+	if manu == basetype.Uint16Invalid {
+		manu = 0
+	}
+	product := id.Product
+	if product == basetype.Uint16Invalid {
+		product = 0
+	}
+	serial := id.SerialNumber
+	if serial == basetype.Uint32Invalid {
+		serial = 0
+	}
+	if manu == 0 && product == 0 && id.ProductName == "" && serial == 0 {
+		return nil
+	}
+	return &model.Device{
+		Manufacturer: manu,
+		Product:      product,
+		ProductName:  id.ProductName,
+		SerialNumber: serial,
+	}
 }
 
 func recordToModel(r *mesgdef.Record) model.Record {

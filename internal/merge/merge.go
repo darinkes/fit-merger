@@ -85,6 +85,14 @@ func Merge(acts []model.Activity, opts Options) (Result, error) {
 		havePrevEnd bool
 	)
 	out.Sport = ordered[0].Sport
+	// Preserve the original recording device: keep the first input that has one,
+	// so a merged FIT reports the real hardware rather than a generic identity.
+	for _, a := range ordered {
+		if a.Device != nil {
+			out.Device = a.Device
+			break
+		}
+	}
 
 	for _, a := range ordered {
 		// Work on a time-sorted copy so a slightly disordered input can't break

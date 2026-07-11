@@ -172,6 +172,10 @@ internal/format  extension-based codec dispatch
 - **FIT developer (custom) fields are not carried across.** Standard record
   fields — position, altitude, distance, speed, HR, cadence, power,
   temperature — are preserved.
+- **The recording device is preserved.** A merged FIT keeps the original
+  manufacturer, product, product name and serial number from the first FIT
+  input that has them; a GPX-only merge is stamped with a neutral `development`
+  identity.
 - **Overlapping inputs** are an error by default; choose `-overlap=trim` or
   `-overlap=keep` to decide explicitly.
 

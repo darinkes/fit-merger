@@ -57,12 +57,24 @@ type Summary struct {
 	Records       int
 }
 
+// Device identifies the recording device, as carried by a FIT file_id message.
+// It is preserved through a merge so the output keeps the original hardware's
+// identity rather than being stamped as generic. GPX has no equivalent, so it
+// is nil for GPX-only inputs. Zero fields mean "unset".
+type Device struct {
+	Manufacturer uint16 // FIT manufacturer id (e.g. 1 = Garmin)
+	Product      uint16
+	ProductName  string
+	SerialNumber uint32
+}
+
 // Activity is a fully decoded workout: an ordered stream of records plus the
 // laps and provenance that produced it.
 type Activity struct {
 	Sport   string
 	Records []Record
 	Laps    []Lap
+	Device  *Device  // recording device, if known (from FIT)
 	Sources []string // input file paths, in merge order
 }
 

@@ -9,6 +9,44 @@ import (
 	"github.com/darinkes/fit-merger/internal/stats"
 )
 
+func TestPreservesDevice(t *testing.T) {
+	base := time.Date(2026, 7, 1, 8, 0, 0, 0, time.UTC)
+	recs := []model.Record{
+		{Time: base, Lat: f(47), Lon: f(8), Altitude: f(1000)},
+		{Time: base.Add(10 * time.Second), Lat: f(47), Lon: f(8.001), Altitude: f(1005)},
+	}
+	sum := stats.Compute(recs, stats.DefaultOptions())
+	act := model.Activity{
+		Sport:   "cycling",
+		Records: recs,
+		Device:  &model.Device{Manufacturer: 1, Product: 3121, ProductName: "Edge 530", SerialNumber: 987654},
+	}
+
+	path := filepath.Join(t.TempDir(), "dev.fit")
+	if err := WriteFile(path, act, sum); err != nil {
+		t.Fatal(err)
+	}
+	got, err := ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Device == nil {
+		t.Fatal("device not preserved (nil)")
+	}
+	if got.Device.Manufacturer != 1 {
+		t.Errorf("manufacturer = %d, want 1", got.Device.Manufacturer)
+	}
+	if got.Device.Product != 3121 {
+		t.Errorf("product = %d, want 3121", got.Device.Product)
+	}
+	if got.Device.ProductName != "Edge 530" {
+		t.Errorf("product name = %q, want Edge 530", got.Device.ProductName)
+	}
+	if got.Device.SerialNumber != 987654 {
+		t.Errorf("serial = %d, want 987654", got.Device.SerialNumber)
+	}
+}
+
 func TestInspect(t *testing.T) {
 	base := time.Date(2026, 7, 1, 8, 0, 0, 0, time.UTC)
 	var recs []model.Record
