@@ -64,6 +64,25 @@ func Write(path string, kind Kind, act model.Activity, summary model.Summary) er
 	}
 }
 
+// Inspect returns ordered, format-specific key/value details for the file at
+// path (FIT header + stored summaries, or GPX metadata + structure).
+func Inspect(path string) (Kind, [][2]string, error) {
+	kind, err := Detect(path)
+	if err != nil {
+		return "", nil, err
+	}
+	switch kind {
+	case GPX:
+		kv, err := gpx.Inspect(path)
+		return kind, kv, err
+	case FIT:
+		kv, err := fit.Inspect(path)
+		return kind, kv, err
+	default:
+		return "", nil, fmt.Errorf("unsupported format %q", kind)
+	}
+}
+
 // Decode parses in-memory bytes of the given kind into the canonical model.
 // The caller sets Sources (e.g. to the uploaded file name).
 func Decode(data []byte, kind Kind) (model.Activity, error) {

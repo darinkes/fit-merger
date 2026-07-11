@@ -89,6 +89,34 @@ The per-part breakdown lets you confirm the whole equals the sum of its parts.
 | `-dry-run` | `false` | Print the merged summary without writing output |
 | `-v` | `false` | Verbose |
 
+### Inspecting a file — `fitmerge dump`
+
+Show everything in a single GPX/FIT file: format-specific header/metadata, which
+fields are present, a computed summary, per-lap figures, and a record sample.
+
+```sh
+fitmerge dump ride.fit          # human-readable
+fitmerge dump -records ride.fit # include every record
+fitmerge dump -json ride.gpx    # machine-readable
+```
+
+For FIT, `dump` shows both the **stored** session summary (what the recording
+device wrote, and what Garmin Connect/Strava read) and the **computed** summary
+(recomputed from the points) — a handy consistency check.
+
+```
+File details (fit)
+  Manufacturer:        garmin
+  Stored distance:     42350.0 m
+  Stored ascent:       512 m
+  Stored moving time:  1h38m20s
+  ...
+Computed summary
+  Distance    42.35 km
+  Ascent      512 m
+  ...
+```
+
 ## How the numbers are computed
 
 Every total is derived from the merged point stream by one consistent algorithm,

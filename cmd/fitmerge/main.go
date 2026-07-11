@@ -28,6 +28,15 @@ func main() {
 	}
 }
 
+// run dispatches to a subcommand. Merging is the default verb, so existing
+// invocations (`fitmerge in1 in2 -o out`) keep working without a subcommand.
+func run(args []string) error {
+	if len(args) > 0 && args[0] == "dump" {
+		return runDump(args[1:])
+	}
+	return runMerge(args)
+}
+
 type config struct {
 	output          string
 	formatName      string
@@ -41,7 +50,7 @@ type config struct {
 	verbose         bool
 }
 
-func run(args []string) error {
+func runMerge(args []string) error {
 	fs := flag.NewFlagSet("fitmerge", flag.ContinueOnError)
 	var c config
 	fs.StringVar(&c.output, "o", "", "output file (.gpx or .fit); format inferred from extension")
@@ -57,8 +66,10 @@ func run(args []string) error {
 	var showVersion bool
 	fs.BoolVar(&showVersion, "version", false, "print version and exit")
 	fs.Usage = func() {
-		fmt.Fprintf(fs.Output(), "Usage: fitmerge [flags] <input1> <input2> [input3...]\n\n"+
-			"Merge GPX/FIT files into one, recomputing all summary figures.\n\nFlags:\n")
+		fmt.Fprintf(fs.Output(), "Usage: fitmerge [flags] <input1> <input2> [input3...]\n"+
+			"       fitmerge dump [flags] <file>\n\n"+
+			"Merge GPX/FIT files into one, recomputing all summary figures.\n"+
+			"Use `fitmerge dump <file>` to inspect a single file.\n\nFlags:\n")
 		fs.PrintDefaults()
 	}
 	if err := fs.Parse(args); err != nil {
