@@ -11,7 +11,7 @@ import (
 	"github.com/muktihari/fit/profile/filedef"
 	"github.com/muktihari/fit/profile/mesgdef"
 
-	"github.com/rinkes/fit-merger/internal/model"
+	"github.com/darinkes/fit-merger/internal/model"
 )
 
 // Read decodes a FIT activity file into an Activity. Record messages become the

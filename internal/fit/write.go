@@ -10,7 +10,7 @@ import (
 	"github.com/muktihari/fit/profile/mesgdef"
 	"github.com/muktihari/fit/profile/typedef"
 
-	"github.com/rinkes/fit-merger/internal/model"
+	"github.com/darinkes/fit-merger/internal/model"
 )
 
 // Write encodes an Activity as a FIT activity file. The passed summary supplies

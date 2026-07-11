@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rinkes/fit-merger/internal/format"
-	"github.com/rinkes/fit-merger/internal/merge"
-	"github.com/rinkes/fit-merger/internal/model"
-	"github.com/rinkes/fit-merger/internal/stats"
+	"github.com/darinkes/fit-merger/internal/format"
+	"github.com/darinkes/fit-merger/internal/merge"
+	"github.com/darinkes/fit-merger/internal/model"
+	"github.com/darinkes/fit-merger/internal/stats"
 )
 
 // testInputs are the two sample GPX parts shipped in the repo's testdata.

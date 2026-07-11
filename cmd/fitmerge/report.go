@@ -5,8 +5,8 @@ import (
 	"io"
 	"time"
 
-	"github.com/rinkes/fit-merger/internal/merge"
-	"github.com/rinkes/fit-merger/internal/model"
+	"github.com/darinkes/fit-merger/internal/merge"
+	"github.com/darinkes/fit-merger/internal/model"
 )
 
 // printSummary renders the merged total plus a per-part breakdown, so the user

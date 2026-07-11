@@ -7,14 +7,14 @@ import (
 
 	xgpx "github.com/tkrajina/gpxgo/gpx"
 
-	"github.com/rinkes/fit-merger/internal/model"
+	"github.com/darinkes/fit-merger/internal/model"
 )
 
 // tpxNS is the Garmin TrackPointExtension namespace used for hr/cad/atemp.
 const tpxNS = "http://www.garmin.com/xmlschemas/TrackPointExtension/v1"
 
 // Creator is written to the GPX <gpx creator="..."> attribute.
-const Creator = "fit-merger (https://github.com/rinkes/fit-merger)"
+const Creator = "fit-merger (https://github.com/darinkes/fit-merger)"
 
 // Write encodes an Activity as GPX 1.1 to path. Each lap becomes its own track
 // segment, which represents the pause between merged files; if the activity has

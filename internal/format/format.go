@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/rinkes/fit-merger/internal/fit"
-	"github.com/rinkes/fit-merger/internal/gpx"
-	"github.com/rinkes/fit-merger/internal/model"
+	"github.com/darinkes/fit-merger/internal/fit"
+	"github.com/darinkes/fit-merger/internal/gpx"
+	"github.com/darinkes/fit-merger/internal/model"
 )
 
 // Kind identifies a supported activity file format.

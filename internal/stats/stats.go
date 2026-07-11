@@ -8,8 +8,8 @@
 package stats
 
 import (
-	"github.com/rinkes/fit-merger/internal/geo"
-	"github.com/rinkes/fit-merger/internal/model"
+	"github.com/darinkes/fit-merger/internal/geo"
+	"github.com/darinkes/fit-merger/internal/model"
 )
 
 // Options tunes the two figures that are genuinely a matter of definition

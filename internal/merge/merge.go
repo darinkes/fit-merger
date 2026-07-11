@@ -8,8 +8,8 @@ import (
 	"sort"
 	"time"
 
-	"github.com/rinkes/fit-merger/internal/model"
-	"github.com/rinkes/fit-merger/internal/stats"
+	"github.com/darinkes/fit-merger/internal/model"
+	"github.com/darinkes/fit-merger/internal/stats"
 )
 
 // OverlapStrategy decides what to do when a later file starts before the

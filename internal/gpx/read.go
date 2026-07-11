@@ -11,7 +11,7 @@ import (
 
 	xgpx "github.com/tkrajina/gpxgo/gpx"
 
-	"github.com/rinkes/fit-merger/internal/model"
+	"github.com/darinkes/fit-merger/internal/model"
 )
 
 // Read parses a GPX file into an Activity. Track points become records; heart

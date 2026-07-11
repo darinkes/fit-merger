@@ -1,6 +1,6 @@
 package stats
 
-import "github.com/rinkes/fit-merger/internal/model"
+import "github.com/darinkes/fit-merger/internal/model"
 
 // Combine folds the per-part summaries of a concatenated activity into one.
 //

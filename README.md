@@ -27,7 +27,7 @@ make build           # -> ./fitmerge, version stamped from git
 # or
 go build -o fitmerge ./cmd/fitmerge
 # or
-go install github.com/rinkes/fit-merger/cmd/fitmerge@latest
+go install github.com/darinkes/fit-merger/cmd/fitmerge@latest
 ```
 
 `make dist` cross-compiles release binaries for linux/macOS/windows into `dist/`.
