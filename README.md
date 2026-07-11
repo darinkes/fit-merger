@@ -23,9 +23,14 @@ into Garmin Connect, Strava, etc.
 ## Install
 
 ```sh
+make build           # -> ./fitmerge, version stamped from git
+# or
 go build -o fitmerge ./cmd/fitmerge
+# or
+go install github.com/rinkes/fit-merger/cmd/fitmerge@latest
 ```
 
+`make dist` cross-compiles release binaries for linux/macOS/windows into `dist/`.
 Requires Go 1.26+.
 
 ## Usage
@@ -44,6 +49,12 @@ Mix formats freely — merge a FIT and a GPX file into a FIT:
 
 ```sh
 fitmerge -o tour.fit morning.fit afternoon.gpx
+```
+
+A single input is a valid "merge" too, so `fitmerge` doubles as a converter:
+
+```sh
+fitmerge -o ride.fit ride.gpx
 ```
 
 Preview the merged summary without writing anything:
@@ -121,6 +132,20 @@ internal/gpx     GPX 1.1 codec
 internal/fit     FIT codec
 internal/format  extension-based codec dispatch
 ```
+
+## Notes & limitations
+
+- **Inputs are ordered by time.** Merging more than one file requires
+  timestamps; a file without them is rejected with a clear error (a single
+  timeless file can still be converted).
+- **Moving time is recomputed from speed**, not read from FIT timer
+  start/stop events. For most files the result is very close; honoring the
+  device's own timer events is on the roadmap.
+- **FIT developer (custom) fields are not carried across.** Standard record
+  fields — position, altitude, distance, speed, HR, cadence, power,
+  temperature — are preserved.
+- **Overlapping inputs** are an error by default; choose `-overlap=trim` or
+  `-overlap=keep` to decide explicitly.
 
 ## Roadmap
 

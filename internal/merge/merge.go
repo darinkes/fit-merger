@@ -59,6 +59,18 @@ func Merge(acts []model.Activity, opts Options) (Result, error) {
 		return Result{}, fmt.Errorf("no records to merge")
 	}
 
+	// Ordering and overlap detection are time-based, so multi-file merges need
+	// timestamps. A single input is just a copy/convert and may lack them.
+	if len(ordered) > 1 {
+		for _, a := range ordered {
+			if a.Records[0].Time.IsZero() {
+				return Result{}, fmt.Errorf(
+					"cannot merge %s: it has no timestamps, so inputs can't be ordered in time",
+					sourceName(a))
+			}
+		}
+	}
+
 	if opts.Sort {
 		sort.SliceStable(ordered, func(i, j int) bool {
 			return ordered[i].Records[0].Time.Before(ordered[j].Records[0].Time)
@@ -75,7 +87,9 @@ func Merge(acts []model.Activity, opts Options) (Result, error) {
 	out.Sport = ordered[0].Sport
 
 	for _, a := range ordered {
-		recs := a.Records
+		// Work on a time-sorted copy so a slightly disordered input can't break
+		// the monotonic-time assumption the stats/distance code relies on.
+		recs := sortedByTime(a.Records)
 
 		if havePrevEnd {
 			first := recs[0].Time
@@ -136,6 +150,16 @@ func Merge(acts []model.Activity, opts Options) (Result, error) {
 		Summary:  stats.Combine(parts),
 		Parts:    parts,
 	}, nil
+}
+
+// sortedByTime returns a stably time-sorted copy of recs, leaving the input
+// untouched.
+func sortedByTime(recs []model.Record) []model.Record {
+	out := append([]model.Record(nil), recs...)
+	sort.SliceStable(out, func(i, j int) bool {
+		return out[i].Time.Before(out[j].Time)
+	})
+	return out
 }
 
 // trimLeading drops records whose time is at or before cutoff.

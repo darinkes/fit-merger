@@ -105,6 +105,36 @@ func TestMergeSortsInputs(t *testing.T) {
 	}
 }
 
+func TestMergeThreeFiles(t *testing.T) {
+	base := time.Date(2026, 7, 1, 8, 0, 0, 0, time.UTC)
+	a := track("a", base, 4)
+	b := track("b", base.Add(5*time.Minute), 4)
+	c := track("c", base.Add(10*time.Minute), 4)
+
+	res, err := Merge([]model.Activity{a, b, c}, defaults())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Parts) != 3 {
+		t.Fatalf("parts = %d, want 3", len(res.Parts))
+	}
+	if len(res.Activity.Records) != 12 {
+		t.Errorf("records = %d, want 12", len(res.Activity.Records))
+	}
+	want := res.Parts[0].TotalDistance + res.Parts[1].TotalDistance + res.Parts[2].TotalDistance
+	if diff := res.Summary.TotalDistance - want; diff < -0.01 || diff > 0.01 {
+		t.Errorf("total distance = %.2f, want sum of 3 parts %.2f", res.Summary.TotalDistance, want)
+	}
+}
+
+func TestMergeRejectsMissingTimestamps(t *testing.T) {
+	a := track("a", time.Time{}, 3) // zero base => zero timestamps
+	b := track("b", time.Date(2026, 7, 1, 9, 0, 0, 0, time.UTC), 3)
+	if _, err := Merge([]model.Activity{a, b}, defaults()); err == nil {
+		t.Fatal("expected error for input without timestamps, got nil")
+	}
+}
+
 func TestMergeOverlapErrors(t *testing.T) {
 	base := time.Date(2026, 7, 1, 8, 0, 0, 0, time.UTC)
 	a := track("a", base, 5)

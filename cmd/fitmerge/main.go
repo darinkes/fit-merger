@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"runtime/debug"
 	"strings"
 
 	"github.com/rinkes/fit-merger/internal/format"
@@ -14,6 +15,11 @@ import (
 	"github.com/rinkes/fit-merger/internal/model"
 	"github.com/rinkes/fit-merger/internal/stats"
 )
+
+// version is overridable at build time with
+// -ldflags "-X main.version=v1.2.3"; otherwise it falls back to the module
+// version embedded by the Go toolchain.
+var version = "dev"
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {
@@ -48,6 +54,8 @@ func run(args []string) error {
 	fs.StringVar(&c.sport, "sport", "", "override sport tag on the output")
 	fs.BoolVar(&c.dryRun, "dry-run", false, "compute and print the merged summary without writing output")
 	fs.BoolVar(&c.verbose, "v", false, "verbose output")
+	var showVersion bool
+	fs.BoolVar(&showVersion, "version", false, "print version and exit")
 	fs.Usage = func() {
 		fmt.Fprintf(fs.Output(), "Usage: fitmerge [flags] <input1> <input2> [input3...]\n\n"+
 			"Merge GPX/FIT files into one, recomputing all summary figures.\n\nFlags:\n")
@@ -55,6 +63,10 @@ func run(args []string) error {
 	}
 	if err := fs.Parse(args); err != nil {
 		return err
+	}
+	if showVersion {
+		fmt.Println("fitmerge", buildVersion())
+		return nil
 	}
 
 	inputs := fs.Args()
@@ -117,6 +129,18 @@ func run(args []string) error {
 	}
 	fmt.Fprintf(os.Stdout, "\nwrote %s (%s, %d records)\n", c.output, kind, len(res.Activity.Records))
 	return nil
+}
+
+// buildVersion prefers an explicit -ldflags version, then the module version
+// the Go toolchain embeds for `go install`ed builds.
+func buildVersion() string {
+	if version != "dev" {
+		return version
+	}
+	if info, ok := debug.ReadBuildInfo(); ok && info.Main.Version != "" && info.Main.Version != "(devel)" {
+		return info.Main.Version
+	}
+	return version
 }
 
 func outputKind(c config) (format.Kind, error) {
