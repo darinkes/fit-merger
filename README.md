@@ -192,8 +192,8 @@ web/               static browser UI (index.html) served with the wasm build
 - [x] FIT read/write with re-based distance and recomputed `session`/`lap`
 - [x] Cross-format merge (FIT+GPX → either)
 - [x] Cross-compiled release binaries + in-browser (WebAssembly) UI
+- [x] Golden-file tests for the merged GPX/FIT wire output
 - [ ] FIT timer-event–aware moving time; developer-field preservation
-- [ ] Golden-file tests
 
 ## License
 

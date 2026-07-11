@@ -1,3 +1,6 @@
 # Normalize line endings to LF in the repo (Go, text, fixtures).
 * text=auto eol=lf
 *.gpx text eol=lf
+
+# FIT files are binary — never apply EOL conversion (would corrupt golden files).
+*.fit binary
