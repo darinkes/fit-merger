@@ -3,91 +3,318 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#7c3aed">
   <title>fitmerge — merge GPX/FIT activities in your browser</title>
+  <!-- Set the theme before first paint to avoid a flash of the wrong colours. -->
+  <script>
+    (function () {
+      var saved = null;
+      try { saved = localStorage.getItem("fitmerge-theme"); } catch (e) {}
+      if (saved === "light" || saved === "dark") {
+        document.documentElement.setAttribute("data-theme", saved);
+      }
+    })();
+  </script>
   <style>
     :root {
-      --bg: #f7f8fa; --card: #ffffff; --fg: #1b1f24; --muted: #5b6570;
-      --border: #e2e6ea; --accent: #2f6fed; --accent-fg: #fff;
-      --ok: #1a7f4b; --err: #c0392b; --code: #f0f2f5;
+      --bg: #faf8ff; --bg-2: #f1ecfd;
+      --card: rgba(255, 255, 255, .72); --card-solid: #ffffff;
+      --fg: #1a1523; --muted: #6b6478;
+      --border: #e8e0f5; --border-strong: #d9cdf0;
+      --accent: #7c3aed; --accent-2: #a855f7; --accent-fg: #fff;
+      --grad: linear-gradient(135deg, #7c3aed 0%, #a855f7 55%, #6366f1 100%);
+      --ring: rgba(124, 58, 237, .35);
+      --ok: #15803d; --ok-2: #22c55e; --err: #dc2626; --code: #f2ecfd;
+      --shadow: 0 1px 2px rgba(24, 12, 46, .05), 0 12px 32px -12px rgba(76, 29, 149, .18);
+      --glow: rgba(124, 58, 237, .16);
     }
     @media (prefers-color-scheme: dark) {
-      :root {
-        --bg: #0e1116; --card: #171b21; --fg: #e6e9ee; --muted: #98a2ad;
-        --border: #262c34; --accent: #4c86f0; --accent-fg: #fff;
-        --ok: #46c884; --err: #ef6b5b; --code: #10141a;
+      :root:not([data-theme="light"]) {
+        --bg: #0c0912; --bg-2: #140f1f;
+        --card: rgba(23, 18, 34, .68); --card-solid: #171122;
+        --fg: #ece7f5; --muted: #a79fb8;
+        --border: #2a2238; --border-strong: #3a2f4f;
+        --accent: #a78bfa; --accent-2: #c084fc; --accent-fg: #140f1f;
+        --grad: linear-gradient(135deg, #a78bfa 0%, #c084fc 55%, #818cf8 100%);
+        --ring: rgba(167, 139, 250, .4);
+        --ok: #4ade80; --ok-2: #22c55e; --err: #f87171; --code: #17112280;
+        --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 16px 40px -14px rgba(0, 0, 0, .7);
+        --glow: rgba(167, 139, 250, .18);
       }
     }
+    :root[data-theme="dark"] {
+      --bg: #0c0912; --bg-2: #140f1f;
+      --card: rgba(23, 18, 34, .68); --card-solid: #171122;
+      --fg: #ece7f5; --muted: #a79fb8;
+      --border: #2a2238; --border-strong: #3a2f4f;
+      --accent: #a78bfa; --accent-2: #c084fc; --accent-fg: #140f1f;
+      --grad: linear-gradient(135deg, #a78bfa 0%, #c084fc 55%, #818cf8 100%);
+      --ring: rgba(167, 139, 250, .4);
+      --ok: #4ade80; --ok-2: #22c55e; --err: #f87171; --code: #17112280;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 16px 40px -14px rgba(0, 0, 0, .7);
+      --glow: rgba(167, 139, 250, .18);
+    }
+
     * { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; }
     body {
-      margin: 0; font: 15px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      margin: 0;
+      font: 15px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
       background: var(--bg); color: var(--fg);
-      display: flex; flex-direction: column; align-items: center; padding: 2rem 1rem 4rem;
+      display: flex; flex-direction: column; align-items: center;
+      padding: 1.5rem 1rem 4rem; min-height: 100vh;
+      transition: background-color .35s ease, color .35s ease;
     }
-    main { width: 100%; max-width: 720px; }
-    h1 { font-size: 1.6rem; margin: 0 0 .25rem; }
-    h1 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-    .sub { color: var(--muted); margin: 0 0 1.5rem; }
+    /* Ambient purple glow behind the content. */
+    body::before {
+      content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+      background:
+        radial-gradient(60rem 30rem at 50% -8rem, var(--glow), transparent 70%),
+        radial-gradient(40rem 24rem at 100% 0%, var(--glow), transparent 65%),
+        linear-gradient(180deg, var(--bg-2), var(--bg) 34rem);
+    }
+    main { width: 100%; max-width: 760px; }
+
+    /* Top bar ---------------------------------------------------------- */
+    .topbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1.5rem; }
+    .brand { display: flex; align-items: center; gap: .7rem; }
+    .logo {
+      width: 42px; height: 42px; border-radius: 12px; background: var(--grad);
+      display: grid; place-items: center; color: #fff; flex: none;
+      box-shadow: 0 8px 20px -6px var(--accent);
+    }
+    .logo svg { width: 24px; height: 24px; }
+    h1 { font-size: 1.55rem; line-height: 1.1; margin: 0; letter-spacing: -.02em; font-weight: 800; }
+    h1 .mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+    .brand small { display: block; font-weight: 500; color: var(--muted); font-size: .8rem; letter-spacing: 0; }
+
+    .theme-toggle {
+      display: inline-grid; place-items: center; width: 42px; height: 42px; flex: none;
+      border: 1px solid var(--border-strong); border-radius: 12px; cursor: pointer;
+      background: var(--card-solid); color: var(--fg);
+      transition: transform .15s ease, border-color .2s ease, background-color .2s ease;
+    }
+    .theme-toggle:hover { transform: translateY(-1px); border-color: var(--accent); }
+    .theme-toggle svg { width: 20px; height: 20px; }
+    /* Show the icon of the mode you'll switch TO: moon in light, sun in dark. */
+    .theme-toggle .sun { display: none; }
+    .theme-toggle .moon { display: block; }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) .theme-toggle .sun { display: block; }
+      :root:not([data-theme="light"]) .theme-toggle .moon { display: none; }
+    }
+    :root[data-theme="dark"] .theme-toggle .sun { display: block; }
+    :root[data-theme="dark"] .theme-toggle .moon { display: none; }
+    :root[data-theme="light"] .theme-toggle .sun { display: none; }
+    :root[data-theme="light"] .theme-toggle .moon { display: block; }
+
+    .lede { color: var(--muted); margin: 0 0 1.25rem; font-size: 1.02rem; max-width: 62ch; }
+    .privacy {
+      display: inline-flex; align-items: center; gap: .4rem; margin-bottom: 1.5rem;
+      padding: .3rem .7rem .3rem .55rem; border-radius: 999px;
+      background: color-mix(in srgb, var(--accent) 12%, transparent);
+      color: var(--accent); font-size: .8rem; font-weight: 600;
+      border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
+    }
+    .privacy svg { width: 14px; height: 14px; }
+
+    /* Cards ------------------------------------------------------------ */
     .card {
-      background: var(--card); border: 1px solid var(--border); border-radius: 12px;
-      padding: 1.25rem 1.35rem; margin-bottom: 1.25rem;
+      position: relative; background: var(--card); border: 1px solid var(--border);
+      border-radius: 18px; padding: 1.4rem 1.5rem; margin-bottom: 1.25rem;
+      box-shadow: var(--shadow); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
     }
-    label { display: block; font-weight: 600; margin-bottom: .35rem; }
+
+    label { display: block; font-weight: 650; margin-bottom: .4rem; }
     .hint { font-weight: 400; color: var(--muted); font-size: .85rem; }
-    input[type=file] {
-      width: 100%; padding: .8rem; border: 1.5px dashed var(--border); border-radius: 10px;
-      background: transparent; color: var(--fg); cursor: pointer;
-    }
-    .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; }
-    .field { margin-top: 1rem; }
+    .field { margin-top: 1.15rem; }
     .field:first-child { margin-top: 0; }
+
+    /* Drop zone -------------------------------------------------------- */
+    .dropzone {
+      position: relative; display: flex; flex-direction: column; align-items: center; gap: .5rem;
+      padding: 1.6rem 1rem; text-align: center; cursor: pointer;
+      border: 2px dashed var(--border-strong); border-radius: 14px;
+      background: color-mix(in srgb, var(--accent) 4%, transparent);
+      color: var(--muted); transition: border-color .2s, background-color .2s, transform .1s;
+    }
+    .dropzone:hover, .dropzone:focus-within { border-color: var(--accent); color: var(--fg); }
+    .dropzone.drag { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); transform: scale(1.01); }
+    .dropzone svg { width: 30px; height: 30px; color: var(--accent); }
+    .dropzone strong { color: var(--fg); font-weight: 650; }
+    .dropzone input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+    #filelist { margin-top: .8rem; display: flex; flex-wrap: wrap; gap: .4rem; }
+    #filelist:empty { display: none; }
+    .chip {
+      display: inline-flex; align-items: center; gap: .35rem; font-size: .8rem;
+      padding: .28rem .6rem; border-radius: 999px; background: var(--code);
+      border: 1px solid var(--border); font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    .chip .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); flex: none; }
+
+    .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem 1.1rem; }
     select, input[type=number], input[type=text] {
-      width: 100%; padding: .5rem .6rem; border: 1px solid var(--border); border-radius: 8px;
-      background: var(--bg); color: var(--fg); font: inherit;
+      width: 100%; padding: .58rem .7rem; border: 1px solid var(--border-strong); border-radius: 10px;
+      background: var(--card-solid); color: var(--fg); font: inherit; transition: border-color .15s, box-shadow .15s;
     }
-    .row { display: flex; align-items: center; gap: .5rem; }
-    .row input[type=checkbox] { width: 1.1rem; height: 1.1rem; }
-    .row label { margin: 0; }
-    .segmented { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+    select:focus, input[type=number]:focus, input[type=text]:focus {
+      outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--ring);
+    }
+    .row { display: flex; align-items: center; gap: .6rem; }
+    .row input[type=checkbox] { width: 1.15rem; height: 1.15rem; accent-color: var(--accent); flex: none; }
+    .row label { margin: 0; font-weight: 500; }
+
+    /* Segmented control ------------------------------------------------ */
+    .segmented {
+      display: inline-flex; padding: 3px; gap: 3px; border-radius: 11px;
+      background: var(--code); border: 1px solid var(--border);
+    }
     .segmented button {
-      border: 0; background: var(--bg); color: var(--fg); padding: .5rem 1.1rem; cursor: pointer; font: inherit;
+      border: 0; background: transparent; color: var(--muted); padding: .5rem 1.3rem;
+      cursor: pointer; font: inherit; font-weight: 600; border-radius: 8px; transition: color .15s, background-color .15s;
     }
-    .segmented button[aria-pressed=true] { background: var(--accent); color: var(--accent-fg); }
+    .segmented button:hover { color: var(--fg); }
+    .segmented button[aria-pressed=true] {
+      background: var(--card-solid); color: var(--accent);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, .12);
+    }
+
     button.primary {
-      width: 100%; margin-top: 1.25rem; padding: .8rem; font-size: 1rem; font-weight: 600;
-      border: 0; border-radius: 10px; background: var(--accent); color: var(--accent-fg); cursor: pointer;
+      width: 100%; margin-top: 1.4rem; padding: .9rem; font-size: 1.02rem; font-weight: 700;
+      border: 0; border-radius: 12px; background: var(--grad); color: #fff; cursor: pointer;
+      box-shadow: 0 10px 24px -8px var(--accent); transition: transform .12s ease, box-shadow .2s ease, filter .2s;
+      letter-spacing: .01em;
     }
-    button.primary:disabled { opacity: .55; cursor: progress; }
-    #status { min-height: 1.2rem; margin-top: .75rem; font-size: .9rem; }
-    #status.err { color: var(--err); }
-    #status.ok { color: var(--ok); }
-    table { width: 100%; border-collapse: collapse; margin-top: .5rem; font-variant-numeric: tabular-nums; }
-    th, td { text-align: right; padding: .35rem .5rem; border-bottom: 1px solid var(--border); }
+    button.primary:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 16px 30px -10px var(--accent); }
+    button.primary:active:not(:disabled) { transform: translateY(0); }
+    button.primary:disabled { opacity: .6; cursor: progress; box-shadow: none; }
+    :focus-visible { outline: none; box-shadow: 0 0 0 3px var(--ring); border-radius: 8px; }
+
+    #status { min-height: 1.2rem; margin-top: .8rem; font-size: .92rem; color: var(--muted); }
+    #status.err { color: var(--err); font-weight: 600; }
+    #status.ok { color: var(--ok); font-weight: 600; }
+
+    /* Result ----------------------------------------------------------- */
+    .table-wrap { overflow-x: auto; margin-top: .6rem; }
+    table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; min-width: 520px; }
+    th, td { text-align: right; padding: .45rem .55rem; border-bottom: 1px solid var(--border); }
     th:first-child, td:first-child { text-align: left; }
-    thead th { color: var(--muted); font-weight: 600; font-size: .82rem; }
-    tfoot td { font-weight: 700; border-top: 2px solid var(--border); }
-    .result-actions { margin-top: 1rem; display: flex; gap: .75rem; flex-wrap: wrap; }
+    thead th { color: var(--muted); font-weight: 600; font-size: .8rem; text-transform: uppercase; letter-spacing: .03em; }
+    tbody tr:hover td { background: color-mix(in srgb, var(--accent) 6%, transparent); }
+    tfoot td { font-weight: 800; border-top: 2px solid var(--border-strong); color: var(--accent); }
+    .result-actions { margin-top: 1.2rem; }
     a.download {
-      display: inline-block; padding: .6rem 1.1rem; border-radius: 9px; text-decoration: none;
-      background: var(--ok); color: #fff; font-weight: 600;
+      display: inline-flex; align-items: center; gap: .5rem; padding: .7rem 1.3rem; border-radius: 11px;
+      text-decoration: none; background: linear-gradient(135deg, var(--ok), var(--ok-2));
+      color: #fff; font-weight: 700; box-shadow: 0 10px 22px -10px var(--ok); transition: transform .12s ease;
     }
+    a.download:hover { transform: translateY(-2px); }
+    a.download svg { width: 17px; height: 17px; }
+
+    /* Stat tiles ------------------------------------------------------- */
+    .stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); gap: .8rem; margin-bottom: 1.4rem; }
+    .stat {
+      padding: .85rem 1rem; border: 1px solid var(--border); border-radius: 14px;
+      background: color-mix(in srgb, var(--accent) 6%, var(--card-solid));
+    }
+    .stat .k { display: flex; align-items: center; gap: .35rem; font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+    .stat .k svg { width: 14px; height: 14px; color: var(--accent); }
+    .stat .v { margin-top: .25rem; font-size: 1.55rem; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+    .stat .v small { font-size: .8rem; font-weight: 600; color: var(--muted); margin-left: .15rem; }
+
+    /* Route map + elevation profile (stacked full-width for legibility) - */
+    .viz { display: grid; gap: 1rem; margin-bottom: 1.4rem; }
+    .viz-panel { margin: 0; border: 1px solid var(--border); border-radius: 14px; padding: .85rem .95rem; background: var(--card-solid); overflow: hidden; }
+    .viz-panel figcaption { font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin-bottom: .55rem; }
+    #mapPanel figcaption { display: flex; align-items: center; justify-content: space-between; gap: .6rem; }
+    .chart { width: 100%; height: auto; display: block; }
+    #map { max-height: 440px; }
+    .chart path, .chart polyline, .chart line { vector-effect: non-scaling-stroke; }
+    .legend { display: flex; flex-wrap: wrap; gap: .45rem .9rem; margin-top: .65rem; font-size: .78rem; color: var(--muted); }
+    .legend span { display: inline-flex; align-items: center; gap: .4rem; }
+    .legend i { width: 12px; height: 3px; border-radius: 2px; display: inline-block; }
+
+    /* Optional OpenStreetMap basemap (opt-in; the only network request) - */
+    .mapview { position: relative; }
+    .mapview.osm { border-radius: 10px; overflow: hidden; background: var(--code); }
+    .tiles { position: absolute; inset: 0; overflow: hidden; }
+    .tiles img { position: absolute; width: 256px; height: 256px; user-select: none; -webkit-user-drag: none; }
+    .mapview:not(.osm) .tiles { display: none; }
+    .mapview.osm #map { position: absolute; inset: 0; width: 100%; height: 100%; max-height: none; }
+    .attribution { position: absolute; right: 6px; bottom: 6px; font-size: .68rem; padding: .12rem .45rem; border-radius: 5px; background: color-mix(in srgb, var(--card-solid) 80%, transparent); color: var(--muted); }
+    .attribution a { color: var(--accent); text-decoration: none; }
+    .attribution a:hover { text-decoration: underline; }
+    .mapnote { margin: .55rem 0 0; }
+    .segmented.sm { padding: 2px; gap: 2px; }
+    .segmented.sm button { padding: .25rem .7rem; font-size: .76rem; font-weight: 600; text-transform: none; letter-spacing: 0; }
+
     .hidden { display: none; }
-    footer { color: var(--muted); font-size: .85rem; margin-top: 1rem; text-align: center; }
-    footer a { color: var(--accent); }
-    code { background: var(--code); padding: .1rem .35rem; border-radius: 5px; font-size: .85em; }
+    footer { color: var(--muted); font-size: .85rem; margin-top: 1.5rem; text-align: center; }
+    footer a { color: var(--accent); font-weight: 600; text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+    footer .sep { opacity: .5; margin: 0 .5rem; }
+    code { background: var(--code); padding: .12rem .38rem; border-radius: 6px; font-size: .85em; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+    @media (max-width: 560px) {
+      .grid { grid-template-columns: 1fr; }
+      h1 { font-size: 1.35rem; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      * { transition: none !important; animation: none !important; }
+      .dropzone.drag, button.primary:hover, a.download:hover, .theme-toggle:hover { transform: none; }
+    }
   </style>
 </head>
 <body class="loading">
   <main>
-    <h1><span class="mono">fitmerge</span></h1>
-    <p class="sub">Merge two or more GPX/FIT activities into one — distance, ascent, moving
-      time and speed recomputed. Runs entirely in your browser; your files never leave this page.</p>
+    <header class="topbar">
+      <div class="brand">
+        <span class="logo" aria-hidden="true">
+          <!-- two paths merging into one -->
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 4c5 0 5 8 10 8M4 20c5 0 5-8 10-8"/><path d="M14 12h6"/><path d="M17 9l3 3-3 3"/>
+          </svg>
+        </span>
+        <div>
+          <h1><span class="mono">fitmerge</span></h1>
+          <small>GPX &amp; FIT activity merger</small>
+        </div>
+      </div>
+      <button id="theme" class="theme-toggle" type="button" aria-label="Toggle light/dark theme" title="Toggle theme">
+        <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>
+        </svg>
+        <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>
+        </svg>
+      </button>
+    </header>
+
+    <p class="lede">Merge two or more activities into one — distance, ascent, moving time and
+      speed are recomputed from the combined track.</p>
+    <span class="privacy">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>
+      </svg>
+      Runs 100% in your browser — files never leave this page
+    </span>
 
     <div class="card">
       <div class="field">
         <label for="files">Activity files
           <span class="hint">— pick 2+ <code>.gpx</code>/<code>.fit</code> files (any mix)</span>
         </label>
-        <input id="files" type="file" accept=".gpx,.fit" multiple>
+        <label class="dropzone" id="drop" for="files">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 16V4M8 8l4-4 4 4"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>
+          </svg>
+          <span><strong>Drop files here</strong> or click to browse</span>
+          <input id="files" type="file" accept=".gpx,.fit" multiple>
+        </label>
+        <div id="filelist"></div>
       </div>
 
       <div class="field">
@@ -129,20 +356,55 @@
     </div>
 
     <div id="result" class="card hidden">
+      <div class="stat-row" id="stats"></div>
+
+      <div class="viz hidden" id="viz">
+        <figure class="viz-panel" id="mapPanel">
+          <figcaption>Merged route
+            <span class="segmented sm" id="basemap" role="group" aria-label="Basemap">
+              <button type="button" data-base="plain" aria-pressed="true">Plain</button>
+              <button type="button" data-base="osm" aria-pressed="false">OpenStreetMap</button>
+            </span>
+          </figcaption>
+          <div class="mapview" id="mapView">
+            <div class="tiles" id="tiles" aria-hidden="true"></div>
+            <svg id="map" class="chart" viewBox="0 0 1000 500" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Map of the merged route"></svg>
+            <div class="attribution hidden" id="attribution">© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors</div>
+          </div>
+          <div class="legend" id="legend"></div>
+          <p class="hint mapnote hidden" id="mapNote">Map tiles load from OpenStreetMap, so your route's location is shared with them. Your activity files still never leave your browser.</p>
+        </figure>
+        <figure class="viz-panel" id="profilePanel">
+          <figcaption>Elevation</figcaption>
+          <svg id="profile" class="chart" viewBox="0 0 1000 260" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Elevation profile"></svg>
+        </figure>
+      </div>
+
       <label>Merged summary</label>
-      <table id="summary">
-        <thead>
-          <tr><th>Part</th><th>Distance</th><th>↑ Ascent</th><th>↓ Descent</th><th>Moving</th><th>Elapsed</th><th>Avg</th><th>Max</th></tr>
-        </thead>
-        <tbody id="parts"></tbody>
-        <tfoot><tr id="total"></tr></tfoot>
-      </table>
-      <div class="result-actions"><a id="download" class="download" download>Download</a></div>
+      <div class="table-wrap">
+        <table id="summary">
+          <thead>
+            <tr><th>Part</th><th>Distance</th><th>↑ Ascent</th><th>↓ Descent</th><th>Moving</th><th>Elapsed</th><th>Avg</th><th>Max</th></tr>
+          </thead>
+          <tbody id="parts"></tbody>
+          <tfoot><tr id="total"></tr></tfoot>
+        </table>
+      </div>
+      <div class="result-actions">
+        <a id="download" class="download" download>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 4v12M8 12l4 4 4-4"/><path d="M4 20h16"/>
+          </svg>
+          <span>Download</span>
+        </a>
+      </div>
     </div>
 
     <footer>
-      Powered by WebAssembly ·
-      <a href="https://github.com/darinkes/fit-merger">source on GitHub</a> ·
+      Powered by WebAssembly
+      <span class="sep">·</span>
+      <a href="https://github.com/darinkes/fit-merger">source on GitHub</a>
+      <span class="sep">·</span>
       <span id="version"></span>
     </footer>
   </main>
@@ -155,7 +417,17 @@
     let outputFormat = "gpx";
     let downloadURL = null;
 
-    // Output-format segmented control.
+    // --- theme toggle -------------------------------------------------
+    const root = document.documentElement;
+    const prefersDark = () => window.matchMedia("(prefers-color-scheme: dark)").matches;
+    const currentTheme = () => root.getAttribute("data-theme") || (prefersDark() ? "dark" : "light");
+    $("theme").addEventListener("click", () => {
+      const next = currentTheme() === "dark" ? "light" : "dark";
+      root.setAttribute("data-theme", next);
+      try { localStorage.setItem("fitmerge-theme", next); } catch (e) {}
+    });
+
+    // --- output-format segmented control ------------------------------
     $("format").querySelectorAll("button").forEach((b) => {
       b.addEventListener("click", () => {
         outputFormat = b.dataset.fmt;
@@ -164,12 +436,57 @@
       });
     });
 
+    // --- basemap toggle: plain offline SVG (default) vs. OpenStreetMap --
+    // OSM is opt-in because fetching tiles reveals the route's location to the
+    // tile server; the preference is remembered once chosen.
+    let basemap = "plain";
+    try { const b = localStorage.getItem("fitmerge-basemap"); if (b === "osm" || b === "plain") basemap = b; } catch (e) {}
+    function syncBasemapButtons() {
+      $("basemap").querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.base === basemap));
+    }
+    $("basemap").querySelectorAll("button").forEach((b) => {
+      b.addEventListener("click", () => {
+        basemap = b.dataset.base;
+        try { localStorage.setItem("fitmerge-basemap", basemap); } catch (e) {}
+        syncBasemapButtons();
+        drawMap();
+      });
+    });
+    syncBasemapButtons();
+
+    // Re-fit an active OSM basemap when the viewport width changes.
+    let resizeTimer;
+    window.addEventListener("resize", () => {
+      if (basemap !== "osm" || !mapData || $("result").classList.contains("hidden")) return;
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(drawMap, 200);
+    });
+
+    // --- file selection + drag & drop ---------------------------------
+    const filesInput = $("files");
+    const drop = $("drop");
+    function renderFileList() {
+      $("filelist").innerHTML = [...filesInput.files]
+        .map((f) => `<span class="chip"><span class="dot"></span>${f.name}</span>`).join("");
+    }
+    filesInput.addEventListener("change", renderFileList);
+    ["dragenter", "dragover"].forEach((ev) =>
+      drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add("drag"); }));
+    ["dragleave", "drop"].forEach((ev) =>
+      drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove("drag"); }));
+    drop.addEventListener("drop", (e) => {
+      if (e.dataTransfer && e.dataTransfer.files.length) {
+        filesInput.files = e.dataTransfer.files;
+        renderFileList();
+      }
+    });
+
     function setStatus(msg, kind) {
       statusEl.textContent = msg || "";
       statusEl.className = kind || "";
     }
 
-    // --- formatting helpers ---
+    // --- formatting helpers -------------------------------------------
     const fmtDur = (s) => {
       s = Math.round(s);
       const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
@@ -184,11 +501,248 @@
         `<td>${kmh(s.avg_speed_ms)}</td><td>${kmh(s.max_speed_ms)}</td>`;
     }
 
+    // --- SVG + visualization helpers ----------------------------------
+    const SVGNS = "http://www.w3.org/2000/svg";
+    const svgEl = (tag, attrs) => {
+      const e = document.createElementNS(SVGNS, tag);
+      for (const k in attrs) e.setAttribute(k, attrs[k]);
+      return e;
+    };
+    // Distinct hues kept inside the violet→magenta range so every part stays "on brand".
+    const partColor = (i) => `hsl(${255 + (i * 34) % 78} 72% 60%)`;
+    const reduceMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    const ICON = {
+      route: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="19" r="2"/><circle cx="18" cy="5" r="2"/><path d="M8 19h5a4 4 0 0 0 0-8H9a4 4 0 0 1 0-8h3"/></svg>',
+      clock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+      up: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18l6-8 4 4 6-8"/><path d="M20 6v5M20 6h-5"/></svg>',
+      speed: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 14l4-4"/><path d="M4 18a8 8 0 1 1 16 0z"/></svg>',
+    };
+
+    // Turn a flat [lat,lon,ele,dist,...] part into point objects.
+    const toPoints = (flat) => {
+      const p = [];
+      for (let i = 0; i + 3 < flat.length; i += 4) p.push({ lat: flat[i], lon: flat[i + 1], ele: flat[i + 2], dist: flat[i + 3] });
+      return p;
+    };
+
+    function animateNum(el, to, dec, unit) {
+      const set = (x) => { el.innerHTML = x.toFixed(dec) + (unit ? ` <small>${unit}</small>` : ""); };
+      if (reduceMotion() || !isFinite(to)) { set(to || 0); return; }
+      const dur = 650, t0 = performance.now();
+      const step = (now) => {
+        let p = Math.min(1, (now - t0) / dur);
+        p = 1 - Math.pow(1 - p, 3); // ease-out
+        set(to * p);
+        if (p < 1) requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    }
+
+    function renderStats(s) {
+      const tiles = [
+        { k: "Distance", icon: ICON.route, to: s.distance_m / 1000, dec: 2, unit: "km" },
+        { k: "Moving", icon: ICON.clock, dur: s.moving_s },
+        { k: "Ascent", icon: ICON.up, to: s.ascent_m, dec: 0, unit: "m" },
+        { k: "Avg speed", icon: ICON.speed, to: s.avg_speed_ms * 3.6, dec: 1, unit: "km/h" },
+      ];
+      const wrap = $("stats");
+      wrap.innerHTML = "";
+      for (const t of tiles) {
+        const div = document.createElement("div");
+        div.className = "stat";
+        div.innerHTML = `<div class="k">${t.icon}${t.k}</div><div class="v"></div>`;
+        wrap.appendChild(div);
+        const v = div.querySelector(".v");
+        if (t.dur != null) v.textContent = fmtDur(t.dur);
+        else animateNum(v, t.to, t.dec, t.unit);
+      }
+    }
+
+    // Web Mercator world-pixel projection (256px tiles), used by the OSM basemap.
+    const TILE = 256;
+    const lonToWorld = (lon, z) => (lon + 180) / 360 * TILE * (1 << z);
+    const latToWorld = (lat, z) => {
+      const s = Math.sin(lat * Math.PI / 180);
+      return (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * TILE * (1 << z);
+    };
+
+    // Cached parsed track + bounds, so the basemap can be switched (or the
+    // window resized) without re-running a merge.
+    let mapData = null;
+
+    function drawLegend(parts) {
+      $("legend").innerHTML = parts.map((p, i) => `<span><i style="background:${partColor(i)}"></i>part ${i + 1}</span>`).join("") +
+        `<span><i style="width:9px;height:9px;border-radius:50%;background:#22c55e"></i>start</span>` +
+        `<span><i style="width:9px;height:9px;border-radius:50%;background:var(--accent)"></i>finish</span>`;
+    }
+
+    // Parse and bound the track. Returns false if there's no usable GPS track
+    // (e.g. an indoor activity); otherwise caches it and draws the current basemap.
+    function renderMap(track) {
+      const parts = (track.parts || []).map(toPoints).filter((p) => p.length);
+      const all = parts.flat();
+      if (all.length < 2) { $("mapPanel").classList.add("hidden"); mapData = null; return false; }
+      $("mapPanel").classList.remove("hidden");
+      const b = { minLat: Infinity, maxLat: -Infinity, minLon: Infinity, maxLon: -Infinity };
+      for (const p of all) {
+        b.minLat = Math.min(b.minLat, p.lat); b.maxLat = Math.max(b.maxLat, p.lat);
+        b.minLon = Math.min(b.minLon, p.lon); b.maxLon = Math.max(b.maxLon, p.lon);
+      }
+      mapData = { parts, all, b };
+      drawLegend(parts);
+      drawMap();
+      return true;
+    }
+
+    function drawMap() {
+      if (!mapData) return;
+      const osm = basemap === "osm";
+      $("mapView").classList.toggle("osm", osm);
+      $("attribution").classList.toggle("hidden", !osm);
+      $("mapNote").classList.toggle("hidden", !osm);
+      if (osm) drawOSM(); else drawPlain();
+    }
+
+    // Shared route drawing: one colored polyline per part + start/finish dots.
+    // `halo` adds a white casing so the line stays legible over map imagery.
+    // Colours that depend on the theme are set via inline style (var() does not
+    // resolve inside SVG presentation attributes).
+    function drawRoute(svg, parts, all, px, py, halo) {
+      parts.forEach((p, i) => {
+        const pts = p.map((q) => `${px(q).toFixed(1)},${py(q).toFixed(1)}`).join(" ");
+        if (halo) svg.appendChild(svgEl("polyline", { points: pts, fill: "none", stroke: "rgba(255,255,255,.85)", "stroke-width": 6, "stroke-linejoin": "round", "stroke-linecap": "round" }));
+        svg.appendChild(svgEl("polyline", { points: pts, fill: "none", stroke: partColor(i), "stroke-width": 3.6, "stroke-linejoin": "round", "stroke-linecap": "round" }));
+      });
+      const dot = (p, fill) => svg.appendChild(svgEl("circle", { cx: px(p), cy: py(p), r: 6, style: `fill:${fill};stroke:var(--card-solid);stroke-width:2.5` }));
+      dot(all[0], "#22c55e");
+      dot(all[all.length - 1], "var(--accent)");
+    }
+
+    // Default: route on a blank ground. Fully offline and private.
+    function drawPlain() {
+      const svg = $("map");
+      svg.innerHTML = "";
+      $("tiles").innerHTML = "";
+      $("mapView").style.height = "";
+      svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+      const { parts, all, b } = mapData;
+      const kx = Math.cos((b.minLat + b.maxLat) / 2 * Math.PI / 180);
+      const spanX = (b.maxLon - b.minLon) * kx || 1e-6, spanY = (b.maxLat - b.minLat) || 1e-6;
+      const W = 1000, pad = 18;
+      const H = Math.max(260, Math.min(760, Math.round(W * spanY / spanX)));
+      svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+      const X = (lon) => pad + (lon - b.minLon) * kx / spanX * (W - 2 * pad);
+      const Y = (lat) => pad + (b.maxLat - lat) / spanY * (H - 2 * pad);
+      drawRoute(svg, parts, all, (q) => X(q.lon), (q) => Y(q.lat), false);
+    }
+
+    // Optional OpenStreetMap basemap: a minimal static slippy-tile map fitted to
+    // the route. These tiles are the only thing the whole app ever fetches, and
+    // only after the user opts in.
+    function drawOSM() {
+      const view = $("mapView"), tilesEl = $("tiles"), svg = $("map");
+      tilesEl.innerHTML = ""; svg.innerHTML = "";
+      const W = Math.max(240, Math.round(view.clientWidth)), H = 400;
+      const { parts, all, b } = mapData;
+
+      // Largest zoom at which the route's bounding box still fits, with margin.
+      let z = 18;
+      for (; z > 1; z--) {
+        const w = lonToWorld(b.maxLon, z) - lonToWorld(b.minLon, z);
+        const h = latToWorld(b.minLat, z) - latToWorld(b.maxLat, z);
+        if (w <= W * 0.9 && h <= H * 0.86) break;
+      }
+      const ox = (lonToWorld(b.minLon, z) + lonToWorld(b.maxLon, z)) / 2 - W / 2;
+      const oy = (latToWorld(b.maxLat, z) + latToWorld(b.minLat, z)) / 2 - H / 2;
+      const n = 1 << z;
+
+      let errShown = false;
+      for (let tx = Math.floor(ox / TILE); tx <= Math.floor((ox + W) / TILE); tx++) {
+        for (let ty = Math.floor(oy / TILE); ty <= Math.floor((oy + H) / TILE); ty++) {
+          if (ty < 0 || ty >= n) continue;
+          const wx = ((tx % n) + n) % n; // wrap longitude
+          const img = new Image();
+          img.decoding = "async";
+          img.style.left = (tx * TILE - ox) + "px";
+          img.style.top = (ty * TILE - oy) + "px";
+          img.onerror = () => {
+            if (errShown) return;
+            errShown = true;
+            $("mapNote").textContent = "Map tiles couldn't load here — they may be blocked in a sandboxed preview, but work on the live site.";
+          };
+          img.src = `https://tile.openstreetmap.org/${z}/${wx}/${ty}.png`;
+          tilesEl.appendChild(img);
+        }
+      }
+      view.style.height = H + "px";
+      svg.setAttribute("preserveAspectRatio", "none");
+      svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+      drawRoute(svg, parts, all, (q) => lonToWorld(q.lon, z) - ox, (q) => latToWorld(q.lat, z) - oy, true);
+    }
+
+    // Elevation profile (distance vs. altitude) as a filled area. Rendered
+    // full-width with large labels so the metre/km readouts stay legible.
+    function renderProfile(track) {
+      const svg = $("profile");
+      svg.innerHTML = "";
+      const pts = (track.parts || []).flatMap(toPoints);
+      if (!track.hasElevation || pts.length < 2) { $("profilePanel").classList.add("hidden"); return false; }
+      $("profilePanel").classList.remove("hidden");
+
+      const W = 1000, H = 300, padX = 10, padTop = 24, padBot = 42;
+      const dmax = pts[pts.length - 1].dist || 1;
+      let emin = Infinity, emax = -Infinity;
+      for (const p of pts) { if (p.ele < emin) emin = p.ele; if (p.ele > emax) emax = p.ele; }
+      if (emax - emin < 1) { emin -= 1; emax += 1; }
+      const X = (d) => padX + d / dmax * (W - 2 * padX);
+      const Y = (e) => padTop + (emax - e) / (emax - emin) * (H - padTop - padBot);
+      svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+
+      const defs = svgEl("defs", {});
+      const grad = svgEl("linearGradient", { id: "eleGrad", x1: 0, y1: 0, x2: 0, y2: 1 });
+      const stop = (offset, opacity) => {
+        const s = svgEl("stop", { offset });
+        s.style.stopColor = "var(--accent)";
+        s.style.stopOpacity = opacity;
+        grad.appendChild(s);
+      };
+      stop("0%", ".5"); stop("100%", ".04");
+      defs.appendChild(grad);
+      svg.appendChild(defs);
+
+      const line = pts.map((p, i) => `${i ? "L" : "M"}${X(p.dist).toFixed(1)},${Y(p.ele).toFixed(1)}`).join(" ");
+      const base = H - padBot;
+      svg.appendChild(svgEl("path", { d: `${line} L${X(dmax).toFixed(1)},${base} L${X(0).toFixed(1)},${base} Z`, fill: "url(#eleGrad)" }));
+      const stroke = svgEl("path", { d: line, fill: "none", "stroke-width": 2.6, "stroke-linejoin": "round" });
+      stroke.style.stroke = "var(--accent)";
+      svg.appendChild(stroke);
+
+      const label = (x, y, txt, anchor) => {
+        const t = svgEl("text", { x, y, "font-size": 26, "text-anchor": anchor || "start" });
+        t.style.fill = "var(--muted)";
+        t.style.fontWeight = "600";
+        t.textContent = txt;
+        svg.appendChild(t);
+      };
+      label(padX + 2, 22, Math.round(emax) + " m");
+      label(padX + 2, base + 32, Math.round(emin) + " m");
+      label(W - padX - 2, base + 32, (dmax / 1000).toFixed(1) + " km", "end");
+      return true;
+    }
+
     function renderResult(res) {
+      // Reveal first so the map view has a real width to fit OSM tiles into.
+      $("result").classList.remove("hidden");
+      renderStats(res.summary);
+      const track = res.track || { parts: [], hasElevation: false };
+      const hasMap = renderMap(track);
+      const hasProfile = renderProfile(track);
+      $("viz").classList.toggle("hidden", !(hasMap || hasProfile));
+
       $("parts").innerHTML = res.parts
         .map((p, i) => `<tr>${rowCells("part " + (i + 1), p)}</tr>`).join("");
       $("total").innerHTML = rowCells("TOTAL", res.summary);
-      $("result").classList.remove("hidden");
 
       if (downloadURL) URL.revokeObjectURL(downloadURL);
       const mime = res.filename.endsWith(".fit") ? "application/octet-stream" : "application/gpx+xml";
@@ -196,11 +750,11 @@
       const dl = $("download");
       dl.href = downloadURL;
       dl.download = res.filename;
-      dl.textContent = "Download " + res.filename;
+      dl.querySelector("span").textContent = "Download " + res.filename;
     }
 
     async function doMerge() {
-      const files = [...$("files").files];
+      const files = [...filesInput.files];
       if (files.length === 0) { setStatus("Pick at least one file.", "err"); return; }
 
       mergeBtn.disabled = true;
@@ -229,11 +783,11 @@
       }
     }
 
-    // --- wasm bootstrap ---
+    // --- wasm bootstrap -----------------------------------------------
     window.onFitmergeReady = () => {
       document.body.classList.remove("loading");
       mergeBtn.disabled = false;
-      mergeBtn.textContent = "Merge";
+      mergeBtn.textContent = "Merge activities";
       $("version").textContent = "fitmerge " + fitmerge.version;
       setStatus("Ready.");
     };

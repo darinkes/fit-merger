@@ -28,6 +28,7 @@ import (
 	"github.com/darinkes/fit-merger/internal/format"
 	"github.com/darinkes/fit-merger/internal/merge"
 	"github.com/darinkes/fit-merger/internal/model"
+	"github.com/darinkes/fit-merger/internal/preview"
 	"github.com/darinkes/fit-merger/internal/stats"
 )
 
@@ -116,6 +117,30 @@ func mergeFn(_ js.Value, args []js.Value) (result any) {
 		"data":     toUint8Array(data),
 		"summary":  summaryToJS(res.Summary),
 		"parts":    parts,
+		"track":    trackToJS(res.Activity),
+	}
+}
+
+// maxTrackPoints caps how many points the browser preview receives: enough to
+// draw a faithful route and elevation profile, few enough to stay snappy and
+// keep the JS<->wasm crossing cheap.
+const maxTrackPoints = 2000
+
+// trackToJS marshals the downsampled preview polyline into a JS-friendly shape:
+// one flat [lat, lon, ele, dist, ...] array per part, plus a hasElevation flag.
+func trackToJS(act model.Activity) map[string]any {
+	tr := preview.Polyline(act, maxTrackPoints)
+	jsParts := make([]any, len(tr.Parts))
+	for i, part := range tr.Parts {
+		flat := make([]any, 0, len(part)*4)
+		for _, p := range part {
+			flat = append(flat, p.Lat, p.Lon, p.Ele, p.Dist)
+		}
+		jsParts[i] = flat
+	}
+	return map[string]any{
+		"parts":        jsParts,
+		"hasElevation": tr.HasElevation,
 	}
 }
 
