@@ -1,0 +1,13 @@
+# Binaries
+/fitmerge
+/fitmerge.exe
+/dist/
+
+# Test/merge output
+*.out
+/testdata/*.merged.*
+
+# Editor/OS
+.DS_Store
+.idea/
+.vscode/
