@@ -154,14 +154,17 @@ FIT/GPX ──decode──▶  Activity (model)  ──merge + recompute──�
 ```
 
 ```
-cmd/fitmerge     CLI, flag parsing, summary report
-internal/model   canonical Activity/Record/Summary
-internal/geo     haversine / 3D distance
-internal/stats   distance, ascent, moving time, speed, HR; part combination
-internal/merge   ordering, overlap handling, distance re-basing
-internal/gpx     GPX 1.1 codec
-internal/fit     FIT codec
-internal/format  extension-based codec dispatch
+cmd/fitmerge       CLI: flag parsing, the merge + dump subcommands, reporting
+cmd/fitmerge-wasm  WebAssembly entry point exposing the engine to the browser UI
+internal/model     canonical Activity/Record/Summary
+internal/geo       haversine / 3D distance
+internal/stats     distance, ascent, moving time, speed, HR; part combination
+internal/merge     ordering, overlap handling, distance re-basing
+internal/gpx       GPX 1.1 codec
+internal/fit       FIT codec
+internal/format    extension-based codec dispatch (path- and byte-slice APIs)
+internal/preview   downsampled route/elevation polyline for the browser preview
+web/               static browser UI (index.html) served with the wasm build
 ```
 
 ## Notes & limitations
@@ -188,8 +191,9 @@ internal/format  extension-based codec dispatch
 - [x] GPX read/write, GPX↔GPX merge
 - [x] FIT read/write with re-based distance and recomputed `session`/`lap`
 - [x] Cross-format merge (FIT+GPX → either)
+- [x] Cross-compiled release binaries + in-browser (WebAssembly) UI
 - [ ] FIT timer-event–aware moving time; developer-field preservation
-- [ ] Golden-file tests, release builds
+- [ ] Golden-file tests
 
 ## License
 

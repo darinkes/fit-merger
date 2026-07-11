@@ -99,20 +99,20 @@ func recordToPoint(r model.Record) xgpx.GPXPoint {
 		p.Point.Elevation = *xgpx.NewNullableFloat64(*r.Altitude)
 	}
 
+	// Heart rate, cadence and temperature live in the Garmin
+	// TrackPointExtension; power is not part of it, so Strava/others use a plain
+	// node instead.
 	if r.HR != nil {
-		tpx(&p).GetOrCreateNode(xgpx.NamespaceURL(tpxNS), "TrackPointExtension", "hr").Data = strconv.Itoa(int(*r.HR))
+		p.Extensions.GetOrCreateNode(xgpx.NamespaceURL(tpxNS), "TrackPointExtension", "hr").Data = strconv.Itoa(int(*r.HR))
 	}
 	if r.Cadence != nil {
-		tpx(&p).GetOrCreateNode(xgpx.NamespaceURL(tpxNS), "TrackPointExtension", "cad").Data = strconv.Itoa(int(*r.Cadence))
+		p.Extensions.GetOrCreateNode(xgpx.NamespaceURL(tpxNS), "TrackPointExtension", "cad").Data = strconv.Itoa(int(*r.Cadence))
 	}
 	if r.Temp != nil {
-		tpx(&p).GetOrCreateNode(xgpx.NamespaceURL(tpxNS), "TrackPointExtension", "atemp").Data = strconv.Itoa(int(*r.Temp))
+		p.Extensions.GetOrCreateNode(xgpx.NamespaceURL(tpxNS), "TrackPointExtension", "atemp").Data = strconv.Itoa(int(*r.Temp))
 	}
 	if r.Power != nil {
-		// Power is not part of TrackPointExtension; Strava/others use a plain node.
 		p.Extensions.GetOrCreateNode(xgpx.NoNamespace, "power").Data = strconv.Itoa(int(*r.Power))
 	}
 	return p
 }
-
-func tpx(p *xgpx.GPXPoint) *xgpx.Extension { return &p.Extensions }

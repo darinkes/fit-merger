@@ -95,7 +95,7 @@ func buildActivity(act model.Activity, s model.Summary) *filedef.Activity {
 // (e.g. a GPX-only input), it stamps a neutral "development" identity so the
 // file is still valid.
 func applyDevice(id *mesgdef.FileId, dev *model.Device) {
-	if dev == nil || (dev.Manufacturer == 0 && dev.Product == 0 && dev.ProductName == "" && dev.SerialNumber == 0) {
+	if dev == nil || dev.IsZero() {
 		id.SetManufacturer(typedef.ManufacturerDevelopment).SetProduct(1)
 		return
 	}

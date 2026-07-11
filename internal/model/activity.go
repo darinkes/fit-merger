@@ -68,6 +68,12 @@ type Device struct {
 	SerialNumber uint32
 }
 
+// IsZero reports whether the device carries no identifying information, in which
+// case it is indistinguishable from no device at all.
+func (d Device) IsZero() bool {
+	return d.Manufacturer == 0 && d.Product == 0 && d.ProductName == "" && d.SerialNumber == 0
+}
+
 // Activity is a fully decoded workout: an ordered stream of records plus the
 // laps and provenance that produced it.
 type Activity struct {

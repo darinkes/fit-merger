@@ -78,15 +78,16 @@ func deviceFromFileID(id *mesgdef.FileId) *model.Device {
 	if serial == basetype.Uint32Invalid {
 		serial = 0
 	}
-	if manu == 0 && product == 0 && id.ProductName == "" && serial == 0 {
-		return nil
-	}
-	return &model.Device{
+	d := model.Device{
 		Manufacturer: manu,
 		Product:      product,
 		ProductName:  id.ProductName,
 		SerialNumber: serial,
 	}
+	if d.IsZero() {
+		return nil
+	}
+	return &d
 }
 
 func recordToModel(r *mesgdef.Record) model.Record {
