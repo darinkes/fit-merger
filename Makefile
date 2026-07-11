@@ -3,12 +3,18 @@ PKG     := ./cmd/fitmerge
 VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS := -s -w -X main.version=$(VERSION)
 
-.PHONY: all build test vet fmt install clean dist
+.PHONY: all build test vet fmt install clean dist web
 
 all: vet test build
 
 build:
 	go build -ldflags "$(LDFLAGS)" -o $(BINARY) $(PKG)
+
+# Build the browser (WebAssembly) version into web/.
+web:
+	GOOS=js GOARCH=wasm go build -ldflags "$(LDFLAGS)" -o web/fitmerge.wasm ./cmd/fitmerge-wasm
+	cp "$(shell go env GOROOT)/lib/wasm/wasm_exec.js" web/
+	@echo "Built web/. Serve it over HTTP, e.g.:  cd web && python -m http.server 8080"
 
 test:
 	go test ./...

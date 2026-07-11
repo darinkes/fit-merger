@@ -1,0 +1,52 @@
+name: Deploy web (Pages)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Permissions the deploy-pages action needs.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never run two Pages deploys at once; let the newest win.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # for `git describe`
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          check-latest: true
+          cache: true
+      - name: Build WebAssembly module
+        run: |
+          VERSION=$(git describe --tags --always --dirty)
+          echo "Building fitmerge.wasm ($VERSION)"
+          GOOS=js GOARCH=wasm go build \
+            -ldflags "-s -w -X main.version=$VERSION" \
+            -o web/fitmerge.wasm ./cmd/fitmerge-wasm
+      - name: Add Go's wasm JS loader
+        run: cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" web/
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4
