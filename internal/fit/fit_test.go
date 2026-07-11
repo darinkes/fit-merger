@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/muktihari/fit/decoder"
+	"github.com/muktihari/fit/encoder"
 	"github.com/muktihari/fit/profile/filedef"
 	"github.com/muktihari/fit/profile/mesgdef"
 	"github.com/muktihari/fit/profile/typedef"
@@ -155,6 +156,60 @@ func TestTimerEventsBracketParts(t *testing.T) {
 	// how many parts were combined — the part boundaries live in the events.
 	if n := decodeLapCount(t, path); n != 1 {
 		t.Errorf("laps = %d, want 1", n)
+	}
+}
+
+// TestReadDerivesActiveSpans encodes a FIT whose timer paused mid-recording
+// (20s..40s of a continuous 60s track) and confirms Read turns the timer events
+// back into the two active spans, from which moving time is 40s — not the 60s a
+// speed-only estimate would give.
+func TestReadDerivesActiveSpans(t *testing.T) {
+	base := time.Date(2026, 7, 1, 8, 0, 0, 0, time.UTC)
+
+	a := filedef.NewActivity()
+	a.FileId.SetType(typedef.FileActivity).SetTimeCreated(base).
+		SetManufacturer(typedef.ManufacturerGarmin).SetProduct(1)
+	for i := 0; i < 7; i++ { // 7 records, 10s apart => 60s span
+		a.Records = append(a.Records, mesgdef.NewRecord(nil).
+			SetTimestamp(base.Add(time.Duration(i)*10*time.Second)).
+			SetPositionLatDegrees(47.0).SetPositionLongDegrees(8.0+0.001*float64(i)))
+	}
+	ev := func(sec int, et typedef.EventType) *mesgdef.Event {
+		return mesgdef.NewEvent(nil).SetTimestamp(base.Add(time.Duration(sec) * time.Second)).
+			SetEvent(typedef.EventTimer).SetEventType(et)
+	}
+	a.Events = []*mesgdef.Event{
+		ev(0, typedef.EventTypeStart), ev(20, typedef.EventTypeStopAll),
+		ev(40, typedef.EventTypeStart), ev(60, typedef.EventTypeStopAll),
+	}
+
+	path := filepath.Join(t.TempDir(), "pause.fit")
+	fp, err := os.Create(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fit := a.ToFIT(nil)
+	if err := encoder.New(fp).Encode(&fit); err != nil {
+		fp.Close()
+		t.Fatal(err)
+	}
+	fp.Close()
+
+	got, err := ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Active) != 2 {
+		t.Fatalf("active spans = %d, want 2", len(got.Active))
+	}
+	if !got.Active[0].Start.Equal(base) || !got.Active[0].End.Equal(base.Add(20*time.Second)) {
+		t.Errorf("span 0 = %v..%v, want +0s..+20s", got.Active[0].Start, got.Active[0].End)
+	}
+	if !got.Active[1].Start.Equal(base.Add(40*time.Second)) || !got.Active[1].End.Equal(base.Add(60*time.Second)) {
+		t.Errorf("span 1 = %v..%v, want +40s..+60s", got.Active[1].Start, got.Active[1].End)
+	}
+	if mv := stats.MovingTimeFromSpans(got.Records, got.Active); mv != 40*time.Second {
+		t.Errorf("moving from spans = %s, want 40s", mv)
 	}
 }
 

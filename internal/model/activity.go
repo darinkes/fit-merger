@@ -74,14 +74,24 @@ func (d Device) IsZero() bool {
 	return d.Manufacturer == 0 && d.Product == 0 && d.ProductName == "" && d.SerialNumber == 0
 }
 
+// TimeSpan is a half-open interval [Start, End) during which the recording
+// timer was running — i.e. the device considered the athlete active. FIT files
+// carry these as timer start/stop events; a pause splits one span into two.
+// GPX has no equivalent.
+type TimeSpan struct {
+	Start time.Time
+	End   time.Time
+}
+
 // Activity is a fully decoded workout: an ordered stream of records plus the
 // laps and provenance that produced it.
 type Activity struct {
 	Sport   string
 	Records []Record
 	Laps    []Lap
-	Device  *Device  // recording device, if known (from FIT)
-	Sources []string // input file paths, in merge order
+	Device  *Device    // recording device, if known (from FIT)
+	Active  []TimeSpan // timer-on spans from FIT timer events; nil if unknown
+	Sources []string   // input file paths, in merge order
 }
 
 // TimeBounds returns the timestamps of the first and last records. The zero

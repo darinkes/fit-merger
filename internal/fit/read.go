@@ -5,12 +5,15 @@ import (
 	"io"
 	"math"
 	"os"
+	"sort"
+	"time"
 
 	"github.com/muktihari/fit/decoder"
 	"github.com/muktihari/fit/kit/semicircles"
 	"github.com/muktihari/fit/profile/basetype"
 	"github.com/muktihari/fit/profile/filedef"
 	"github.com/muktihari/fit/profile/mesgdef"
+	"github.com/muktihari/fit/profile/typedef"
 
 	"github.com/darinkes/fit-merger/internal/model"
 )
@@ -59,7 +62,43 @@ func Read(r io.Reader) (model.Activity, error) {
 			EndTime:   lap.Timestamp,
 		})
 	}
+	act.Active = activeSpans(a.Events)
 	return act, nil
+}
+
+// activeSpans reconstructs the timer-on intervals from a FIT file's timer
+// events. A device emits a timer `start` when recording begins or resumes and a
+// `stop`/`stop_all` when it pauses or ends, so each start..stop pair is a span
+// during which the athlete was moving. Events are processed in timestamp order;
+// an unmatched start (file cut off mid-recording) or stop is ignored. Returns
+// nil when the file has no timer events, so callers fall back to speed-based
+// moving time.
+func activeSpans(events []*mesgdef.Event) []model.TimeSpan {
+	timers := make([]*mesgdef.Event, 0, len(events))
+	for _, e := range events {
+		if e.Event == typedef.EventTimer && !e.Timestamp.IsZero() {
+			timers = append(timers, e)
+		}
+	}
+	sort.SliceStable(timers, func(i, j int) bool {
+		return timers[i].Timestamp.Before(timers[j].Timestamp)
+	})
+
+	var spans []model.TimeSpan
+	var start time.Time
+	open := false
+	for _, e := range timers {
+		if e.EventType == typedef.EventTypeStart {
+			start, open = e.Timestamp, true
+			continue
+		}
+		// Any stop variant (stop, stop_all, stop_disable, ...) closes the span.
+		if open && e.Timestamp.After(start) {
+			spans = append(spans, model.TimeSpan{Start: start, End: e.Timestamp})
+		}
+		open = false
+	}
+	return spans
 }
 
 // deviceFromFileID lifts the recording device's identity out of a FIT file_id

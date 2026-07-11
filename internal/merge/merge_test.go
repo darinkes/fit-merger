@@ -154,6 +154,34 @@ func TestMergeCarriesDevice(t *testing.T) {
 	}
 }
 
+func TestMergeHonorsTimerSpansForMovingTime(t *testing.T) {
+	base := time.Date(2026, 7, 1, 8, 0, 0, 0, time.UTC)
+	a := track("a", base, 7) // 7 recs 10s apart => 60s elapsed, all moving
+
+	// The device recorded a 20s pause mid-part, so timer-aware moving is 40s
+	// even though every sample is above the moving-speed threshold.
+	a.Active = []model.TimeSpan{
+		{Start: base, End: base.Add(20 * time.Second)},
+		{Start: base.Add(40 * time.Second), End: base.Add(60 * time.Second)},
+	}
+
+	res, err := Merge([]model.Activity{a}, defaults())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Summary.TotalMoving != 40*time.Second {
+		t.Errorf("moving = %s, want 40s (timer spans, not the 60s speed estimate)", res.Summary.TotalMoving)
+	}
+	if res.Summary.TotalElapsed != 60*time.Second {
+		t.Errorf("elapsed = %s, want 60s", res.Summary.TotalElapsed)
+	}
+	// Avg speed is re-derived from distance over the timer-aware moving time.
+	want := res.Summary.TotalDistance / 40
+	if diff := res.Summary.AvgSpeed - want; diff < -0.01 || diff > 0.01 {
+		t.Errorf("avg speed = %.3f, want %.3f (distance / timer moving)", res.Summary.AvgSpeed, want)
+	}
+}
+
 func TestMergeOverlapErrors(t *testing.T) {
 	base := time.Date(2026, 7, 1, 8, 0, 0, 0, time.UTC)
 	a := track("a", base, 5)

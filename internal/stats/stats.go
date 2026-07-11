@@ -8,6 +8,8 @@
 package stats
 
 import (
+	"time"
+
 	"github.com/darinkes/fit-merger/internal/geo"
 	"github.com/darinkes/fit-merger/internal/model"
 )
@@ -108,6 +110,33 @@ func Compute(records []model.Record, opt Options) model.Summary {
 		s.AvgHR = uint8(hrSum / hrCount)
 	}
 	return s
+}
+
+// MovingTimeFromSpans sums the timer-on spans, clamped to the record time
+// range, giving the moving time the recording device itself measured. It is
+// preferred over the speed-threshold estimate when a FIT input carries timer
+// events, since it honors the device's own pause detection exactly. Returns 0
+// when there are no spans or records.
+func MovingTimeFromSpans(records []model.Record, spans []model.TimeSpan) time.Duration {
+	if len(records) == 0 || len(spans) == 0 {
+		return 0
+	}
+	first := records[0].Time
+	last := records[len(records)-1].Time
+	var total time.Duration
+	for _, s := range spans {
+		start, end := s.Start, s.End
+		if start.Before(first) {
+			start = first
+		}
+		if end.After(last) {
+			end = last
+		}
+		if end.After(start) {
+			total += end.Sub(start)
+		}
+	}
+	return total
 }
 
 // CumulativeDistances returns, for each record, the running distance in meters

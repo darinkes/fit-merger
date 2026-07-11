@@ -134,8 +134,9 @@ reported totals match its actual points.
   reference before it counts. This suppresses GPS altitude jitter, which would
   otherwise inflate climb. (It's exactly why Garmin, Strava, etc. report
   different climb totals — here it's explicit and tunable.)
-- **Moving time** — sum of the time between samples whose speed exceeds
-  `-moving-threshold`; pauses are excluded.
+- **Moving time** — when a FIT input carries timer start/stop events, the sum of
+  the device's own timer-on spans (its exact pause detection). Otherwise, and for
+  GPX, the sum of the time between samples whose speed exceeds `-moving-threshold`.
 - **Elapsed time** — last timestamp minus first, **including** gaps between
   merged files (a gap is a pause, not distance).
 - **Average speed** — distance ÷ moving time. **Max speed** — the fastest sample.
@@ -172,9 +173,10 @@ web/               static browser UI (index.html) served with the wasm build
 - **Inputs are ordered by time.** Merging more than one file requires
   timestamps; a file without them is rejected with a clear error (a single
   timeless file can still be converted).
-- **Moving time is recomputed from speed**, not read from FIT timer
-  start/stop events. For most files the result is very close; honoring the
-  device's own timer events is on the roadmap.
+- **Moving time honors FIT timer events when present.** A FIT file's timer
+  start/stop events record exactly when the device considered the athlete active,
+  so moving time is summed from those spans. Inputs without them (GPX, or FIT
+  files that record none) fall back to the `-moving-threshold` speed estimate.
 - **FIT developer (custom) fields are not carried across.** Standard record
   fields — position, altitude, distance, speed, HR, cadence, power,
   temperature — are preserved.
@@ -193,7 +195,8 @@ web/               static browser UI (index.html) served with the wasm build
 - [x] Cross-format merge (FIT+GPX → either)
 - [x] Cross-compiled release binaries + in-browser (WebAssembly) UI
 - [x] Golden-file tests for the merged GPX/FIT wire output
-- [ ] FIT timer-event–aware moving time; developer-field preservation
+- [x] FIT timer-event–aware moving time
+- [ ] FIT developer-field preservation
 
 ## License
 

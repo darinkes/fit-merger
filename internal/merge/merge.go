@@ -132,18 +132,31 @@ func Merge(acts []model.Activity, opts Options) (Result, error) {
 			rebased[i] = r
 		}
 		out.Records = append(out.Records, rebased...)
+
+		// Summarize this part from its own records (see stats.Combine for why).
+		// Re-basing only offsets the absolute distance field by a constant, which
+		// cancels in the per-segment deltas, so recs and rebased summarize alike.
+		part := stats.Compute(recs, opts.Stats)
+		// Honor the device's own timer events for moving time when the input
+		// carried them: the speed threshold only estimates the pauses the device
+		// already recorded exactly.
+		if len(a.Active) > 0 {
+			part.TotalMoving = stats.MovingTimeFromSpans(recs, a.Active)
+			part.AvgSpeed = 0
+			if part.TotalMoving > 0 {
+				part.AvgSpeed = part.TotalDistance / part.TotalMoving.Seconds()
+			}
+		}
+
 		out.Laps = append(out.Laps, model.Lap{
 			StartTime: recs[0].Time,
 			EndTime:   recs[len(recs)-1].Time,
-			Summary:   stats.Compute(recs, opts.Stats),
+			Summary:   part,
 		})
 		if out.Sport == "" {
 			out.Sport = a.Sport
 		}
 		out.Sources = append(out.Sources, a.Sources...)
-
-		// Summarize this part from its own records (see stats.Combine for why).
-		part := stats.Compute(rebased, opts.Stats)
 		parts = append(parts, part)
 
 		if len(cd) > 0 {
