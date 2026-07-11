@@ -36,6 +36,26 @@ go install github.com/darinkes/fit-merger/cmd/fitmerge@latest
 `make dist` cross-compiles release binaries for linux/macOS/windows into `dist/`.
 Requires Go 1.26+.
 
+### Self-host the web UI
+
+The browser UI can be hosted anywhere with just Docker — no Go toolchain and no
+separate web server. `make web-docker` builds the WebAssembly UI into an nginx
+image and serves it:
+
+```sh
+make web-docker              # build + serve on http://localhost:8080 (Ctrl-C to stop)
+make web-docker PORT=9000    # publish on a different port
+```
+
+Or drive Docker directly (e.g. to run detached):
+
+```sh
+docker build -f Dockerfile.web -t fitmerge-web .
+docker run --rm -p 8080:80 fitmerge-web
+```
+
+Everything still runs client-side; files never leave the browser.
+
 ## Usage
 
 ```sh

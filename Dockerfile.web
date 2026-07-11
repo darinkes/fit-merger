@@ -1,0 +1,28 @@
+# Build the browser (WebAssembly) UI and serve it from a small static-web
+# container, so the app can be hosted with nothing but Docker — no local Go
+# toolchain and no separate web server.
+#
+#   docker build -f Dockerfile.web -t fitmerge-web .
+#   docker run --rm -p 8080:80 fitmerge-web      # -> http://localhost:8080
+#
+# or, in one step, via the Makefile:  make web-docker
+
+FROM golang:1.26 AS build
+ARG VERSION=docker
+WORKDIR /src
+
+# Cache module downloads across rebuilds when only source changes.
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+RUN GOOS=js GOARCH=wasm go build -ldflags "-s -w -X main.version=${VERSION}" \
+        -o web/fitmerge.wasm ./cmd/fitmerge-wasm \
+ && cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" web/
+
+# Serve the static UI (index.html + favicon + the built wasm) with nginx.
+# The page fetches fitmerge.wasm as an arrayBuffer, so no special MIME/config
+# is needed — the stock nginx defaults are enough.
+FROM nginx:alpine
+COPY --from=build /src/web/ /usr/share/nginx/html/
+EXPOSE 80

@@ -20,6 +20,7 @@ make test       # go test ./...
 make vet        # go vet ./...
 make fmt        # gofmt -w .
 make web        # build web/fitmerge.wasm + copy wasm_exec.js
+make web-docker # build the web UI into an nginx image and serve it (PORT=8080)
 make dist       # cross-compile release binaries into dist/
 make all        # vet + test + build
 ```

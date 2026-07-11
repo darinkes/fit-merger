@@ -1,0 +1,8 @@
+# Keep the build context small; the wasm build only needs the Go source.
+.git
+dist/
+web/fitmerge.wasm
+web/wasm_exec.js
+/fitmerge
+/fitmerge.exe
+*.out
