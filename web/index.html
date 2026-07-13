@@ -282,6 +282,13 @@
       .grid { grid-template-columns: 1fr; }
       h1 { font-size: 1.35rem; }
     }
+    /* Comfortable finger-sized targets on touch devices; desktop stays compact. */
+    @media (pointer: coarse) {
+      .segmented button { min-height: 44px; }
+      .segmented.sm button { min-height: 40px; }
+      .mapctrl button { width: 44px; height: 44px; font-size: 1.4rem; }
+      .mapctrl button svg { width: 18px; height: 18px; }
+    }
     @media (prefers-reduced-motion: reduce) {
       * { transition: none !important; animation: none !important; }
       .dropzone.drag, button.primary:hover, a.download:hover, .theme-toggle:hover { transform: none; }
