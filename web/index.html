@@ -537,7 +537,7 @@
           <p class="hint mapnote hidden" id="mapNote">Map tiles load from OpenStreetMap, so your route's location is shared with them. Your activity files still never leave your browser.</p>
         </figure>
         <figure class="viz-panel" id="profilePanel">
-          <figcaption>Elevation</figcaption>
+          <figcaption>Elevation <span class="hint" style="font-weight:400;text-transform:none;letter-spacing:0">— drag the ends to trim</span></figcaption>
           <svg id="profile" class="chart" viewBox="0 0 1000 260" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Elevation profile"></svg>
         </figure>
         <div id="channels"></div>
@@ -1199,6 +1199,7 @@
     // Hovering any chart drives a crosshair at the same distance on all of them,
     // so one hover reads out every metric at that point on the route.
     let syncCharts = [];
+    let trimDragging = false; // suppress the crosshair while dragging a trim handle
     function hideSyncHover() { for (const c of syncCharts) c.hover.setAttribute("visibility", "hidden"); }
     function syncHover(d) {
       for (const c of syncCharts) {
@@ -1246,8 +1247,79 @@
         const x = pt.matrixTransform(ctm.inverse()).x;
         return Math.max(0, Math.min(opts.dmax, (x - opts.padL) / (opts.W - opts.padL - opts.padR) * opts.dmax));
       };
-      svg.addEventListener("pointermove", (e) => { const d = toDist(e); if (d != null) syncHover(d); });
+      svg.addEventListener("pointermove", (e) => { if (trimDragging) return; const d = toDist(e); if (d != null) syncHover(d); });
       svg.addEventListener("pointerleave", hideSyncHover);
+    }
+
+    // Apply a trim from the drag handles. leftDist/rightDist are distances on the
+    // CURRENTLY shown profile; the existing trim is added back so repeated drags
+    // accumulate correctly against the original activity, then re-merge.
+    function applyTrim(leftDist, rightDist, shownDmax) {
+      if (leftDist < 1 && shownDmax - rightDist < 1) return; // nothing meaningfully cut
+      const curStart = (parseFloat($("trimStart").value) || 0) * 1000;
+      const curEnd = (parseFloat($("trimEnd").value) || 0) * 1000;
+      $("trimStart").value = ((curStart + leftDist) / 1000).toFixed(2);
+      $("trimEnd").value = ((curEnd + (shownDmax - rightDist)) / 1000).toFixed(2);
+      $("advanced").open = true; // surface the updated values
+      doMerge();
+    }
+
+    // Draggable trim handles on the elevation profile: drag the left/right grips
+    // inward to shade (and, on release, cut) the ends. Mouse and touch via pointer
+    // events; the numeric Trim inputs remain the way to reduce/reset a trim.
+    function addTrimHandles(svg, ctx) {
+      const { dmax, padL, padR, W, padTop, base } = ctx;
+      const distAt = (x) => Math.max(0, Math.min(dmax, (x - padL) / (W - padL - padR) * dmax));
+      let leftX = padL, rightX = W - padR;
+
+      const shade = (r) => { r.style.fill = "var(--fg)"; r.style.opacity = ".26"; r.style.pointerEvents = "none"; svg.appendChild(r); return r; };
+      const shadeL = shade(svgEl("rect", { x: padL, y: padTop, width: 0, height: base - padTop }));
+      const shadeR = shade(svgEl("rect", { x: W - padR, y: padTop, width: 0, height: base - padTop }));
+
+      const mk = (side) => {
+        const g = svgEl("g", { class: "trim-handle" });
+        const hit = svgEl("rect", { y: padTop - 10, width: 18, height: base - padTop + 16, fill: "transparent" });
+        hit.style.cursor = "ew-resize"; hit.style.touchAction = "none"; hit.style.pointerEvents = "all";
+        const line = svgEl("line", { y1: padTop - 6, y2: base, "stroke-width": 2 }); line.style.stroke = "var(--accent)"; line.style.pointerEvents = "none";
+        const grip = svgEl("rect", { y: padTop - 10, width: 12, height: 15, rx: 3 }); grip.style.fill = "var(--accent)"; grip.style.pointerEvents = "none";
+        g.appendChild(hit); g.appendChild(line); g.appendChild(grip); svg.appendChild(g);
+        return { hit, line, grip, side };
+      };
+      const hs = [mk("l"), mk("r")];
+      const place = () => {
+        [[hs[0], leftX], [hs[1], rightX]].forEach(([h, x]) => {
+          h.hit.setAttribute("x", (x - 9).toFixed(1));
+          h.line.setAttribute("x1", x.toFixed(1)); h.line.setAttribute("x2", x.toFixed(1));
+          h.grip.setAttribute("x", (x - 6).toFixed(1));
+        });
+        shadeL.setAttribute("width", Math.max(0, leftX - padL).toFixed(1));
+        shadeR.setAttribute("x", rightX.toFixed(1));
+        shadeR.setAttribute("width", Math.max(0, (W - padR) - rightX).toFixed(1));
+      };
+      place();
+
+      const xAt = (e) => { const ctm = svg.getScreenCTM(); const pt = svg.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY; return pt.matrixTransform(ctm.inverse()).x; };
+      for (const h of hs) {
+        h.hit.addEventListener("pointerdown", (e) => {
+          e.preventDefault(); e.stopPropagation();
+          trimDragging = true; hideSyncHover();
+          // Track on the window so the drag survives the pointer leaving the grip.
+          const move = (ev) => {
+            const x = Math.max(padL, Math.min(W - padR, xAt(ev)));
+            if (h.side === "l") leftX = Math.min(x, rightX - 4);
+            else rightX = Math.max(x, leftX + 4);
+            place();
+          };
+          const up = () => {
+            window.removeEventListener("pointermove", move);
+            window.removeEventListener("pointerup", up);
+            trimDragging = false;
+            applyTrim(distAt(leftX), distAt(rightX), dmax);
+          };
+          window.addEventListener("pointermove", move);
+          window.addEventListener("pointerup", up);
+        });
+      }
     }
 
     function renderProfile(track) {
@@ -1317,6 +1389,8 @@
         pts, X, Y, value: (p) => p.ele, unit: "m", color: "var(--accent)",
         W, padL, padR, dmax, top: padTop - 6, base, labelY: padTop + 14, r: 5,
       });
+      // Drag-handle trimming lives on the elevation profile.
+      addTrimHandles(svg, { dmax, padL, padR, W, padTop, base });
       return true;
     }
 
