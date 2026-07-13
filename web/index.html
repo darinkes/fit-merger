@@ -242,11 +242,24 @@
 
     /* Optional OpenStreetMap basemap (opt-in; the only network request) - */
     .mapview { position: relative; }
-    .mapview.osm { border-radius: 10px; overflow: hidden; background: var(--code); }
+    .mapview.osm { border-radius: 10px; overflow: hidden; background: var(--code); cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
+    .mapview.osm.dragging { cursor: grabbing; }
     .tiles { position: absolute; inset: 0; overflow: hidden; }
     .tiles img { position: absolute; width: 256px; height: 256px; user-select: none; -webkit-user-drag: none; }
     .mapview:not(.osm) .tiles { display: none; }
-    .mapview.osm #map { position: absolute; inset: 0; width: 100%; height: 100%; max-height: none; }
+    .mapview.osm #map { position: absolute; inset: 0; width: 100%; height: 100%; max-height: none; pointer-events: none; }
+    /* Pan/zoom controls, only over the OSM basemap. */
+    .mapctrl { position: absolute; top: 8px; left: 8px; z-index: 2; display: flex; flex-direction: column; gap: 4px; }
+    .mapview:not(.osm) .mapctrl { display: none; }
+    .mapctrl button {
+      width: 30px; height: 30px; display: grid; place-items: center; padding: 0; cursor: pointer;
+      border: 1px solid var(--border-strong); border-radius: 8px; color: var(--fg);
+      background: color-mix(in srgb, var(--card-solid) 85%, transparent);
+      backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+      font-size: 1.15rem; font-weight: 700; line-height: 1;
+    }
+    .mapctrl button:hover { border-color: var(--accent); color: var(--accent); }
+    .mapctrl button svg { width: 15px; height: 15px; }
     .attribution { position: absolute; right: 6px; bottom: 6px; font-size: .68rem; padding: .12rem .45rem; border-radius: 5px; background: color-mix(in srgb, var(--card-solid) 80%, transparent); color: var(--muted); }
     .attribution a { color: var(--accent); text-decoration: none; }
     .attribution a:hover { text-decoration: underline; }
@@ -372,6 +385,13 @@
           <div class="mapview" id="mapView">
             <div class="tiles" id="tiles" aria-hidden="true"></div>
             <svg id="map" class="chart" viewBox="0 0 1000 500" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Map of the merged route"></svg>
+            <div class="mapctrl" id="mapCtrl">
+              <button type="button" data-zoom="in" aria-label="Zoom in" title="Zoom in">+</button>
+              <button type="button" data-zoom="out" aria-label="Zoom out" title="Zoom out">−</button>
+              <button type="button" data-zoom="fit" aria-label="Fit route" title="Fit route">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+              </button>
+            </div>
             <div class="attribution hidden" id="attribution">© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors</div>
           </div>
           <div class="legend" id="legend"></div>
@@ -457,12 +477,12 @@
     });
     syncBasemapButtons();
 
-    // Re-fit an active OSM basemap when the viewport width changes.
+    // Adjust an active OSM basemap when the viewport width changes (keeps zoom).
     let resizeTimer;
     window.addEventListener("resize", () => {
       if (basemap !== "osm" || !mapData || $("result").classList.contains("hidden")) return;
       clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(drawMap, 200);
+      resizeTimer = setTimeout(osmResize, 200);
     });
 
     // --- file selection + drag & drop ---------------------------------
@@ -584,6 +604,12 @@
     // Cached elevation-profile scales + hover elements, so the crosshair handler
     // can map a pointer position back to a point without re-rendering.
     let profileData = null;
+    // Interactive OSM basemap state: integer zoom + the world-pixel coordinate of
+    // the viewport's top-left corner, plus a tile cache keyed by "z:tx:ty" that is
+    // reused across pans/zooms so tiles reposition instead of reloading.
+    let osmState = null;        // { z, ox, oy, W, H }
+    const osmTiles = new Map(); // "z:tx:ty" -> <img>
+    let osmRAF = 0, osmErrShown = false;
 
     function drawLegend(parts) {
       $("legend").innerHTML = parts.map((p, i) => `<span><i style="background:${partColor(i)}"></i>part ${i + 1}</span>`).join("") +
@@ -604,6 +630,7 @@
         b.minLon = Math.min(b.minLon, p.lon); b.maxLon = Math.max(b.maxLon, p.lon);
       }
       mapData = { parts, all, b };
+      osmState = null; osmErrShown = false; osmClearTiles(); // re-fit OSM to the new route
       drawLegend(parts);
       drawMap();
       return true;
@@ -615,7 +642,7 @@
       $("mapView").classList.toggle("osm", osm);
       $("attribution").classList.toggle("hidden", !osm);
       $("mapNote").classList.toggle("hidden", !osm);
-      if (osm) drawOSM(); else drawPlain();
+      if (osm) osmDraw(); else drawPlain();
     }
 
     // Shared route drawing: one colored polyline per part + start/finish dots.
@@ -637,7 +664,7 @@
     function drawPlain() {
       const svg = $("map");
       svg.innerHTML = "";
-      $("tiles").innerHTML = "";
+      osmClearTiles();
       $("mapView").style.height = "";
       svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
       const { parts, all, b } = mapData;
@@ -651,49 +678,196 @@
       drawRoute(svg, parts, all, (q) => X(q.lon), (q) => Y(q.lat), false);
     }
 
-    // Optional OpenStreetMap basemap: a minimal static slippy-tile map fitted to
-    // the route. These tiles are the only thing the whole app ever fetches, and
-    // only after the user opts in.
-    function drawOSM() {
-      const view = $("mapView"), tilesEl = $("tiles"), svg = $("map");
-      tilesEl.innerHTML = ""; svg.innerHTML = "";
-      const W = Math.max(240, Math.round(view.clientWidth)), H = 400;
-      const { parts, all, b } = mapData;
+    // Optional OpenStreetMap basemap: a minimal slippy-tile map the user can pan
+    // and zoom. Tiles are the only thing the whole app ever fetches, and only
+    // after the user opts in. We keep our own tiny tile layer (no map library) to
+    // stay dependency-free and private.
+    const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+    const OSM_MINZ = 2, OSM_MAXZ = 19;
 
-      // Largest zoom at which the route's bounding box still fits, with margin.
-      let z = 18;
-      for (; z > 1; z--) {
+    // Initial view: the largest zoom at which the route's bbox still fits, centred.
+    function osmFit() {
+      const view = $("mapView");
+      const { b } = mapData;
+      const W = Math.max(240, Math.round(view.clientWidth)), H = 400;
+      let z = OSM_MAXZ;
+      for (; z > OSM_MINZ; z--) {
         const w = lonToWorld(b.maxLon, z) - lonToWorld(b.minLon, z);
         const h = latToWorld(b.minLat, z) - latToWorld(b.maxLat, z);
         if (w <= W * 0.9 && h <= H * 0.86) break;
       }
       const ox = (lonToWorld(b.minLon, z) + lonToWorld(b.maxLon, z)) / 2 - W / 2;
       const oy = (latToWorld(b.maxLat, z) + latToWorld(b.minLat, z)) / 2 - H / 2;
-      const n = 1 << z;
+      osmState = { z, ox, oy, W, H };
+    }
 
-      let errShown = false;
+    // Keep the view from wandering entirely off the world.
+    function osmClampOffsets() {
+      const { z, W, H } = osmState;
+      const world = TILE * (1 << z);
+      osmState.oy = clamp(osmState.oy, -H * 0.5, Math.max(-H * 0.5, world - H * 0.5));
+      osmState.ox = clamp(osmState.ox, -W * 0.5, Math.max(-W * 0.5, world - W * 0.5));
+    }
+
+    // Detach cached tile <img>s (basemap switch, new route, or teardown).
+    function osmClearTiles() {
+      $("tiles").innerHTML = "";
+      osmTiles.clear();
+    }
+
+    // Render the current view: (re)position only the tiles the viewport needs,
+    // reusing cached ones and dropping the rest, then redraw the route overlay.
+    function osmRender() {
+      if (!mapData || !osmState) return;
+      osmClampOffsets();
+      const view = $("mapView"), tilesEl = $("tiles"), svg = $("map");
+      const { z, ox, oy, W, H } = osmState;
+      const n = 1 << z;
+      view.style.height = H + "px";
+
+      const need = new Set();
       for (let tx = Math.floor(ox / TILE); tx <= Math.floor((ox + W) / TILE); tx++) {
         for (let ty = Math.floor(oy / TILE); ty <= Math.floor((oy + H) / TILE); ty++) {
           if (ty < 0 || ty >= n) continue;
-          const wx = ((tx % n) + n) % n; // wrap longitude
-          const img = new Image();
-          img.decoding = "async";
+          const key = z + ":" + tx + ":" + ty;
+          need.add(key);
+          let img = osmTiles.get(key);
+          if (!img) {
+            const wx = ((tx % n) + n) % n; // wrap longitude
+            img = new Image();
+            img.decoding = "async";
+            img.alt = "";
+            img.onerror = () => {
+              if (osmErrShown) return;
+              osmErrShown = true;
+              $("mapNote").textContent = "Map tiles couldn't load here — they may be blocked in a sandboxed preview, but work on the live site.";
+            };
+            img.src = `https://tile.openstreetmap.org/${z}/${wx}/${ty}.png`;
+            tilesEl.appendChild(img);
+            osmTiles.set(key, img);
+          }
           img.style.left = (tx * TILE - ox) + "px";
           img.style.top = (ty * TILE - oy) + "px";
-          img.onerror = () => {
-            if (errShown) return;
-            errShown = true;
-            $("mapNote").textContent = "Map tiles couldn't load here — they may be blocked in a sandboxed preview, but work on the live site.";
-          };
-          img.src = `https://tile.openstreetmap.org/${z}/${wx}/${ty}.png`;
-          tilesEl.appendChild(img);
         }
       }
-      view.style.height = H + "px";
+      for (const [key, img] of osmTiles) {
+        if (!need.has(key)) { img.remove(); osmTiles.delete(key); }
+      }
+
       svg.setAttribute("preserveAspectRatio", "none");
       svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
-      drawRoute(svg, parts, all, (q) => lonToWorld(q.lon, z) - ox, (q) => latToWorld(q.lat, z) - oy, true);
+      svg.innerHTML = "";
+      drawRoute(svg, mapData.parts, mapData.all, (q) => lonToWorld(q.lon, z) - ox, (q) => latToWorld(q.lat, z) - oy, true);
     }
+
+    // Coalesce rapid pan/zoom updates into one render per animation frame.
+    function osmSchedule() {
+      if (osmRAF) return;
+      osmRAF = requestAnimationFrame(() => { osmRAF = 0; osmRender(); });
+    }
+
+    // Zoom by whole levels, keeping the world point under (cx, cy) fixed.
+    function osmZoom(dz, cx, cy) {
+      if (!osmState) return;
+      const nz = clamp(osmState.z + dz, OSM_MINZ, OSM_MAXZ);
+      if (nz === osmState.z) return;
+      const scale = Math.pow(2, nz - osmState.z);
+      osmState.ox = (osmState.ox + cx) * scale - cx;
+      osmState.oy = (osmState.oy + cy) * scale - cy;
+      osmState.z = nz;
+      osmSchedule(); // stale (other-zoom) tiles are pruned inside osmRender
+    }
+
+    function osmDraw() {
+      if (!osmState) osmFit();
+      osmRender();
+    }
+
+    // Re-fit width on resize without discarding the user's zoom (keep the centre).
+    function osmResize() {
+      if (basemap !== "osm" || !mapData) return;
+      if (!osmState) { osmDraw(); return; }
+      const newW = Math.max(240, Math.round($("mapView").clientWidth));
+      osmState.ox += (osmState.W - newW) / 2;
+      osmState.W = newW;
+      osmRender();
+    }
+
+    // --- OSM pan / zoom interaction (mouse, wheel, touch) ----------------
+    (function () {
+      const view = $("mapView");
+      const pointers = new Map(); // pointerId -> { x, y } in client coords
+      let drag = null, pinch = null;
+      const active = () => basemap === "osm" && osmState;
+      const localXY = (e) => { const r = view.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+
+      view.addEventListener("pointerdown", (e) => {
+        if (!active()) return;
+        // Let the zoom controls handle their own clicks — capturing the pointer
+        // here would retarget the click to the view and swallow it.
+        if (e.target.closest(".mapctrl")) return;
+        view.setPointerCapture(e.pointerId);
+        pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        if (pointers.size === 1) { drag = { x: e.clientX, y: e.clientY }; view.classList.add("dragging"); }
+        else { drag = null; pinch = null; } // second finger down -> pinch (seeded on move)
+      });
+
+      view.addEventListener("pointermove", (e) => {
+        if (!active() || !pointers.has(e.pointerId)) return;
+        pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        if (pointers.size >= 2) { pinchMove(); return; }
+        if (!drag) return;
+        osmState.ox -= e.clientX - drag.x;
+        osmState.oy -= e.clientY - drag.y;
+        drag.x = e.clientX; drag.y = e.clientY;
+        osmSchedule();
+      });
+
+      function endPointer(e) {
+        pointers.delete(e.pointerId);
+        if (pointers.size < 2) pinch = null;
+        if (pointers.size === 0) { drag = null; view.classList.remove("dragging"); }
+        else { const p = [...pointers.values()][0]; drag = { x: p.x, y: p.y }; }
+      }
+      view.addEventListener("pointerup", endPointer);
+      view.addEventListener("pointercancel", endPointer);
+
+      // Two-finger pinch: step whole zoom levels as the gap crosses √2, anchored
+      // at the pinch midpoint.
+      function pinchMove() {
+        const [a, b2] = [...pointers.values()];
+        const r = view.getBoundingClientRect();
+        const cx = (a.x + b2.x) / 2 - r.left, cy = (a.y + b2.y) / 2 - r.top;
+        const dist = Math.hypot(a.x - b2.x, a.y - b2.y) || 1;
+        if (!pinch) { pinch = { dist, z: osmState.z }; return; }
+        const wantZ = clamp(pinch.z + Math.round(Math.log2(dist / pinch.dist)), OSM_MINZ, OSM_MAXZ);
+        if (wantZ !== osmState.z) osmZoom(wantZ - osmState.z, cx, cy);
+      }
+
+      let wheelAccum = 0;
+      view.addEventListener("wheel", (e) => {
+        if (!active()) return;
+        e.preventDefault();
+        const [cx, cy] = localXY(e);
+        wheelAccum += e.deltaY;
+        while (wheelAccum <= -80) { osmZoom(1, cx, cy); wheelAccum += 80; }
+        while (wheelAccum >= 80) { osmZoom(-1, cx, cy); wheelAccum -= 80; }
+      }, { passive: false });
+
+      view.addEventListener("dblclick", (e) => {
+        if (!active()) return;
+        e.preventDefault();
+        const [cx, cy] = localXY(e);
+        osmZoom(e.shiftKey ? -1 : 1, cx, cy);
+      });
+
+      $("mapCtrl").addEventListener("click", (e) => {
+        const btn = e.target.closest("button");
+        if (!btn || !osmState) return;
+        if (btn.dataset.zoom === "fit") { osmFit(); osmRender(); return; }
+        osmZoom(btn.dataset.zoom === "in" ? 1 : -1, osmState.W / 2, osmState.H / 2);
+      });
+    })();
 
     // Elevation profile (distance vs. altitude) as a filled area. Rendered
     // full-width with large labels so the metre/km readouts stay legible.
