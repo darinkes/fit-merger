@@ -246,7 +246,9 @@
 
     /* Optional OpenStreetMap basemap (opt-in; the only network request) - */
     .mapview { position: relative; }
-    .mapview.osm { border-radius: 10px; overflow: hidden; background: var(--code); cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
+    /* pan-y: one finger scrolls the page; two fingers pan/zoom the map (handled
+       in JS). Mouse drag still pans on desktop. */
+    .mapview.osm { border-radius: 10px; overflow: hidden; background: var(--code); cursor: grab; touch-action: pan-y; user-select: none; -webkit-user-select: none; }
     .mapview.osm.dragging { cursor: grabbing; }
     .tiles { position: absolute; inset: 0; overflow: hidden; }
     .tiles img { position: absolute; width: 256px; height: 256px; user-select: none; -webkit-user-drag: none; }
@@ -808,7 +810,7 @@
     (function () {
       const view = $("mapView");
       const pointers = new Map(); // pointerId -> { x, y } in client coords
-      let drag = null, pinch = null;
+      let drag = null, gest = null;
       const active = () => basemap === "osm" && osmState;
       const localXY = (e) => { const r = view.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
 
@@ -817,17 +819,26 @@
         // Let the zoom controls handle their own clicks — capturing the pointer
         // here would retarget the click to the view and swallow it.
         if (e.target.closest(".mapctrl")) return;
-        view.setPointerCapture(e.pointerId);
         pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-        if (pointers.size === 1) { drag = { x: e.clientX, y: e.clientY }; view.classList.add("dragging"); }
-        else { drag = null; pinch = null; } // second finger down -> pinch (seeded on move)
+        if (e.pointerType !== "touch") {
+          // Mouse / pen: press-drag pans.
+          view.setPointerCapture(e.pointerId);
+          drag = { x: e.clientX, y: e.clientY };
+          view.classList.add("dragging");
+        } else if (pointers.size >= 2) {
+          // Touch: two fingers pan/zoom the map; one finger scrolls the page
+          // (touch-action: pan-y). Capture both so the gesture survives a finger
+          // sliding off the map.
+          for (const id of pointers.keys()) { try { view.setPointerCapture(id); } catch (_) {} }
+          drag = null; gest = null;
+        }
       });
 
       view.addEventListener("pointermove", (e) => {
         if (!active() || !pointers.has(e.pointerId)) return;
         pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-        if (pointers.size >= 2) { pinchMove(); return; }
-        if (!drag) return;
+        if (pointers.size >= 2) { gestureMove(); return; }
+        if (!drag) return; // lone touch finger -> let the browser scroll the page
         osmState.ox -= e.clientX - drag.x;
         osmState.oy -= e.clientY - drag.y;
         drag.x = e.clientX; drag.y = e.clientY;
@@ -836,23 +847,26 @@
 
       function endPointer(e) {
         pointers.delete(e.pointerId);
-        if (pointers.size < 2) pinch = null;
+        if (pointers.size < 2) gest = null;
         if (pointers.size === 0) { drag = null; view.classList.remove("dragging"); }
-        else { const p = [...pointers.values()][0]; drag = { x: p.x, y: p.y }; }
       }
       view.addEventListener("pointerup", endPointer);
       view.addEventListener("pointercancel", endPointer);
 
-      // Two-finger pinch: step whole zoom levels as the gap crosses √2, anchored
-      // at the pinch midpoint.
-      function pinchMove() {
+      // Two-finger gesture: pan by the midpoint's movement, and step whole zoom
+      // levels as the finger gap crosses √2 (anchored at the midpoint).
+      function gestureMove() {
         const [a, b2] = [...pointers.values()];
         const r = view.getBoundingClientRect();
-        const cx = (a.x + b2.x) / 2 - r.left, cy = (a.y + b2.y) / 2 - r.top;
+        const mx = (a.x + b2.x) / 2 - r.left, my = (a.y + b2.y) / 2 - r.top;
         const dist = Math.hypot(a.x - b2.x, a.y - b2.y) || 1;
-        if (!pinch) { pinch = { dist, z: osmState.z }; return; }
-        const wantZ = clamp(pinch.z + Math.round(Math.log2(dist / pinch.dist)), OSM_MINZ, OSM_MAXZ);
-        if (wantZ !== osmState.z) osmZoom(wantZ - osmState.z, cx, cy);
+        if (!gest) { gest = { d0: dist, z0: osmState.z, mx, my }; return; }
+        osmState.ox -= mx - gest.mx;
+        osmState.oy -= my - gest.my;
+        gest.mx = mx; gest.my = my;
+        const wantZ = clamp(gest.z0 + Math.round(Math.log2(dist / gest.d0)), OSM_MINZ, OSM_MAXZ);
+        if (wantZ !== osmState.z) osmZoom(wantZ - osmState.z, mx, my);
+        else osmSchedule();
       }
 
       let wheelAccum = 0;
