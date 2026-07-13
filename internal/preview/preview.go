@@ -54,7 +54,19 @@ func Polyline(act model.Activity, maxPoints int) Track {
 		stride = (total + maxPoints - 1) / maxPoints
 	}
 
+	// Seed the carried-forward altitude with the first known sample so leading
+	// position-only records (before the altimeter locks) read the real starting
+	// elevation instead of 0 m, which would otherwise sink the profile's minimum.
 	var lastEle, lastDist float64
+seed:
+	for _, recs := range grouped {
+		for _, r := range recs {
+			if r.Altitude != nil {
+				lastEle = *r.Altitude
+				break seed
+			}
+		}
+	}
 	parts := make([][]Point, 0, nParts)
 	for _, recs := range grouped {
 		pts := make([]Point, 0, len(recs)/stride+1)

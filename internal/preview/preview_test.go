@@ -91,6 +91,27 @@ func TestPolylineDownsampleKeepsEndpoints(t *testing.T) {
 	}
 }
 
+func TestPolylineSeedsLeadingAltitude(t *testing.T) {
+	lat, lon := 47.0, 8.0
+	ele := 500.0
+	// The first positioned record has no altitude yet (e.g. the barometric
+	// altimeter hasn't locked); the profile must start at the first known
+	// elevation, not fall back to 0 m.
+	act := model.Activity{
+		Records: []model.Record{
+			{Lat: &lat, Lon: &lon},
+			{Lat: &lat, Lon: &lon, Altitude: &ele},
+		},
+	}
+	tr := preview.Polyline(act, 0)
+	if !tr.HasElevation {
+		t.Fatal("HasElevation = false, want true")
+	}
+	if got := tr.Parts[0][0].Ele; got != ele {
+		t.Errorf("leading point elevation = %v, want %v (back-filled from first known sample)", got, ele)
+	}
+}
+
 func TestPolylineSkipsRecordsWithoutPosition(t *testing.T) {
 	lat, lon := 47.0, 8.0
 	act := model.Activity{
