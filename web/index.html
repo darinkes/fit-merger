@@ -190,6 +190,13 @@
     .hint { font-weight: 400; color: var(--muted); font-size: .85rem; }
     .field { margin-top: 1.15rem; }
     .field:first-child { margin-top: 0; }
+    /* Collapsible "Trim & privacy" section */
+    .advanced { margin-top: 1.15rem; }
+    .advanced summary { cursor: pointer; font-weight: 650; padding: .3rem 0; list-style: none; display: inline-flex; align-items: center; gap: .45rem; }
+    .advanced summary::-webkit-details-marker { display: none; }
+    .advanced summary::before { content: "▸"; color: var(--accent); }
+    .advanced[open] summary::before { content: "▾"; }
+    .advanced .grid { margin-top: .5rem; }
 
     /* Drop zone -------------------------------------------------------- */
     .dropzone {
@@ -204,14 +211,26 @@
     .dropzone svg { width: 30px; height: 30px; color: var(--accent); }
     .dropzone strong { color: var(--fg); font-weight: 650; }
     .dropzone input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
-    #filelist { margin-top: .8rem; display: flex; flex-wrap: wrap; gap: .4rem; }
+    #filelist { margin-top: .8rem; display: flex; flex-direction: column; gap: .4rem; }
     #filelist:empty { display: none; }
-    .chip {
-      display: inline-flex; align-items: center; gap: .35rem; font-size: .8rem;
-      padding: .28rem .6rem; border-radius: 999px; background: var(--code);
-      border: 1px solid var(--border); font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    /* One reorderable row per selected file. */
+    .filerow {
+      display: flex; align-items: center; gap: .6rem; padding: .5rem .6rem;
+      border: 1px solid var(--border); border-radius: 10px; background: var(--card-solid);
     }
-    .chip .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); flex: none; }
+    .filerow.dragging { opacity: .5; }
+    .filerow.dragover { border-color: var(--accent); box-shadow: 0 0 0 2px var(--ring); }
+    .filerow .fhandle { cursor: grab; color: var(--muted); flex: none; line-height: 1; font-size: 1.1rem; touch-action: none; }
+    .filerow .fnum { flex: none; width: 1.3rem; height: 1.3rem; display: grid; place-items: center; font-size: .72rem; font-weight: 700;
+      border-radius: 6px; background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
+    .filerow .fname { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .82rem; }
+    .filerow .fsum { flex: none; color: var(--muted); font-size: .78rem; font-variant-numeric: tabular-nums; }
+    .filerow .fremove { flex: none; border: 0; background: transparent; color: var(--muted); cursor: pointer;
+      font-size: 1.2rem; line-height: 1; padding: 0 .2rem; border-radius: 6px; }
+    .filerow .fremove:hover { color: var(--err); }
+    /* Single-file rows (Convert mode) don't need the drag handle or index. */
+    .filelist-single .fhandle, .filelist-single .fnum { display: none; }
 
     .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem 1.1rem; }
     select, input[type=number], input[type=text] {
@@ -290,6 +309,10 @@
     .viz-panel { margin: 0; border: 1px solid var(--border); border-radius: 14px; padding: .85rem .95rem; background: var(--card-solid); overflow: hidden; }
     .viz-panel figcaption { font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin-bottom: .55rem; }
     #mapPanel figcaption { display: flex; align-items: center; justify-content: space-between; gap: .6rem; }
+    #channels { display: grid; gap: 1rem; }
+    #channels:empty { display: none; }
+    .chan-panel figcaption { display: flex; align-items: baseline; justify-content: space-between; gap: .6rem; }
+    .chan-panel .chstat { font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--muted); }
     .chart { width: 100%; height: auto; display: block; }
     #map { max-height: 440px; }
     .chart path, .chart polyline, .chart line { vector-effect: non-scaling-stroke; }
@@ -455,6 +478,30 @@
       <div class="field row" id="sortField"><input id="sort" type="checkbox" checked><label for="sort">Order inputs by start time</label></div>
       <div class="field row"><input id="use3d" type="checkbox"><label for="use3d">Include elevation in distance (3D)</label></div>
 
+      <details class="advanced">
+        <summary>Trim &amp; privacy <span class="hint">— optional</span></summary>
+        <div class="field grid">
+          <div>
+            <label for="trimStart">Trim start (km)</label>
+            <input id="trimStart" type="number" value="0" min="0" step="0.1">
+          </div>
+          <div>
+            <label for="trimEnd">Trim end (km)</label>
+            <input id="trimEnd" type="number" value="0" min="0" step="0.1">
+          </div>
+          <div>
+            <label for="privacy">Privacy zone (m)</label>
+            <input id="privacy" type="number" value="0" min="0" step="50" placeholder="hide radius">
+          </div>
+          <div>
+            <label>Hide near</label>
+            <div class="row"><input id="privStart" type="checkbox"><label for="privStart">Start</label>
+              <input id="privEnd" type="checkbox" style="margin-left:.9rem"><label for="privEnd">End</label></div>
+          </div>
+        </div>
+        <p class="hint" style="margin:.4rem 0 0">Removes points from the ends (by distance) or within a radius of the start/finish, then recomputes every total.</p>
+      </details>
+
       <button id="merge" class="primary">Merge activities</button>
       <div id="status"></div>
     </div>
@@ -489,6 +536,7 @@
           <figcaption>Elevation</figcaption>
           <svg id="profile" class="chart" viewBox="0 0 1000 260" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Elevation profile"></svg>
         </figure>
+        <div id="channels"></div>
       </div>
 
       <label>Summary</label>
@@ -602,27 +650,87 @@
       resizeTimer = setTimeout(osmResize, 200);
     });
 
-    // --- file selection + drag & drop ---------------------------------
+    // --- file selection, ordering & per-file preview ------------------
     const filesInput = $("files");
     const drop = $("drop");
-    function renderFileList() {
-      $("filelist").innerHTML = [...filesInput.files]
-        .map((f) => `<span class="chip"><span class="dot"></span>${f.name}</span>`).join("");
-    }
-    // Warm the wasm engine as soon as files are chosen, so it's usually ready by
-    // the time the user clicks — without blocking first paint on the download.
+    let selectedFiles = [];            // ordered list of chosen File objects
+    const fileSummaries = new Map();   // File -> "12.3 km · 1:04:00" preview (or "…"/"—")
+
+    // Warm the wasm engine as soon as files are chosen (also powers previews).
     const warmWasm = () => ensureWasm().catch(() => {});
-    filesInput.addEventListener("change", () => { renderFileList(); warmWasm(); });
+
+    function addFiles(list) {
+      const incoming = [...list].filter((f) => /\.(gpx|fit|tcx)$/i.test(f.name));
+      if (!incoming.length) return;
+      if (mode === "convert") {
+        selectedFiles = [incoming[0]]; // convert takes a single file
+      } else {
+        for (const f of incoming) {
+          if (!selectedFiles.some((s) => s.name === f.name && s.size === f.size)) selectedFiles.push(f);
+        }
+      }
+      filesInput.value = ""; // allow re-picking a file after it's removed
+      renderFileList();
+      warmWasm();
+      selectedFiles.forEach(inspectFile);
+    }
+
+    // Decode one file in the engine to preview its distance and moving time.
+    async function inspectFile(file) {
+      if (fileSummaries.has(file)) return;
+      fileSummaries.set(file, "…");
+      try {
+        await ensureWasm();
+        const res = fitmerge.inspect({ name: file.name, data: new Uint8Array(await file.arrayBuffer()) });
+        fileSummaries.set(file, res.ok ? `${km(res.summary.distance_m)} · ${fmtDur(res.summary.moving_s || res.summary.elapsed_s)}` : "—");
+      } catch (e) { fileSummaries.set(file, "—"); }
+      renderFileList();
+    }
+
+    let dragIdx = null;
+    function renderFileList() {
+      const list = $("filelist");
+      list.innerHTML = "";
+      list.classList.toggle("filelist-single", mode === "convert");
+      selectedFiles.forEach((f, i) => {
+        const row = document.createElement("div");
+        row.className = "filerow";
+        row.draggable = mode !== "convert";
+        row.innerHTML =
+          `<span class="fhandle" aria-hidden="true">⠿</span>` +
+          `<span class="fnum">${i + 1}</span>` +
+          `<span class="fname" title="${f.name}">${f.name}</span>` +
+          `<span class="fsum">${fileSummaries.get(f) || ""}</span>`;
+        const rm = document.createElement("button");
+        rm.type = "button"; rm.className = "fremove"; rm.textContent = "×";
+        rm.setAttribute("aria-label", "Remove " + f.name);
+        rm.addEventListener("click", () => { selectedFiles.splice(i, 1); renderFileList(); });
+        row.appendChild(rm);
+        if (mode !== "convert") {
+          row.addEventListener("dragstart", (e) => { dragIdx = i; row.classList.add("dragging"); e.dataTransfer.effectAllowed = "move"; });
+          row.addEventListener("dragend", () => { dragIdx = null; [...list.children].forEach((c) => c.classList.remove("dragging", "dragover")); });
+          row.addEventListener("dragover", (e) => { e.preventDefault(); row.classList.add("dragover"); });
+          row.addEventListener("dragleave", () => row.classList.remove("dragover"));
+          row.addEventListener("drop", (e) => {
+            e.preventDefault(); row.classList.remove("dragover");
+            if (dragIdx === null || dragIdx === i) return;
+            const [moved] = selectedFiles.splice(dragIdx, 1);
+            selectedFiles.splice(i, 0, moved);
+            $("sort").checked = false; // a manual order overrides start-time sorting
+            renderFileList();
+          });
+        }
+        list.appendChild(row);
+      });
+    }
+
+    filesInput.addEventListener("change", () => addFiles(filesInput.files));
     ["dragenter", "dragover"].forEach((ev) =>
       drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add("drag"); }));
     ["dragleave", "drop"].forEach((ev) =>
       drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove("drag"); }));
     drop.addEventListener("drop", (e) => {
-      if (e.dataTransfer && e.dataTransfer.files.length) {
-        filesInput.files = e.dataTransfer.files;
-        renderFileList();
-        warmWasm();
-      }
+      if (e.dataTransfer && e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
     });
 
     function setStatus(msg, kind) {
@@ -655,6 +763,7 @@
       $("overlapField").classList.toggle("hidden", convert);
       $("sortField").classList.toggle("hidden", convert);
       updateActionLabel();
+      renderFileList();
     }
 
     $("mode").querySelectorAll("button").forEach((b) => {
@@ -663,8 +772,9 @@
         mode = b.dataset.mode;
         try { localStorage.setItem("fitmerge-mode", mode); } catch (e) {}
         // Start fresh: a multi-file merge selection isn't a valid convert input.
+        selectedFiles = [];
+        fileSummaries.clear();
         filesInput.value = "";
-        renderFileList();
         $("result").classList.add("hidden");
         setStatus("");
         syncMode();
@@ -713,10 +823,13 @@
       speed: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 14l4-4"/><path d="M4 18a8 8 0 1 1 16 0z"/></svg>',
     };
 
-    // Turn a flat [lat,lon,ele,dist,...] part into point objects.
+    // Turn a flat [lat,lon,ele,dist,hr,cad,pow,...] part into point objects.
+    // Channel values are NaN where the source had no data.
     const toPoints = (flat) => {
       const p = [];
-      for (let i = 0; i + 3 < flat.length; i += 4) p.push({ lat: flat[i], lon: flat[i + 1], ele: flat[i + 2], dist: flat[i + 3] });
+      for (let i = 0; i + 6 < flat.length; i += 7) {
+        p.push({ lat: flat[i], lon: flat[i + 1], ele: flat[i + 2], dist: flat[i + 3], hr: flat[i + 4], cad: flat[i + 5], pow: flat[i + 6] });
+      }
       return p;
     };
 
@@ -1203,6 +1316,81 @@
     $("profile").addEventListener("pointermove", moveProfileHover);
     $("profile").addEventListener("pointerleave", hideProfileHover);
 
+    // --- HR / power / cadence charts ----------------------------------
+    // Distinct semantic hues so the channels are told apart at a glance; each is
+    // legible on both light and dark grounds.
+    const CHANNELS = [
+      { key: "hr", label: "Heart rate", unit: "bpm", flag: "hasHR", color: "#ef4444" },
+      { key: "pow", label: "Power", unit: "W", flag: "hasPower", color: "#f59e0b" },
+      { key: "cad", label: "Cadence", unit: "rpm", flag: "hasCadence", color: "#14b8a6" },
+    ];
+
+    function renderChannels(track) {
+      const host = $("channels");
+      host.innerHTML = "";
+      const pts = (track.parts || []).flatMap(toPoints);
+      if (pts.length < 2) return;
+      const dmax = pts[pts.length - 1].dist || 1;
+      for (const ch of CHANNELS) {
+        if (!track[ch.flag]) continue;
+        const fig = buildChannelChart(pts, dmax, ch);
+        if (fig) host.appendChild(fig);
+      }
+    }
+
+    // One compact distance-vs-value chart (area + line) with min/max gridlines
+    // and an avg/max readout. Values are finite from the first known sample on
+    // (carried forward), so the drawn segment has no gaps.
+    function buildChannelChart(pts, dmax, ch) {
+      const start = pts.findIndex((p) => Number.isFinite(p[ch.key]));
+      if (start < 0) return null;
+      const seg = pts.slice(start);
+      if (seg.length < 2) return null;
+
+      let vmin = Infinity, vmax = -Infinity, sum = 0;
+      for (const p of seg) { const v = p[ch.key]; if (v < vmin) vmin = v; if (v > vmax) vmax = v; sum += v; }
+      const avg = sum / seg.length;
+      if (vmax - vmin < 1) { vmin -= 1; vmax += 1; }
+
+      const W = 1000, H = 150, padL = 50, padR = 14, padTop = 14, padBot = 24;
+      const gap = (vmax - vmin) * 0.12;
+      const lo = vmin - gap, hi = vmax + gap;
+      const X = (d) => padL + d / dmax * (W - padL - padR);
+      const Y = (v) => padTop + (hi - v) / (hi - lo) * (H - padTop - padBot);
+      const base = H - padBot;
+
+      const svg = svgEl("svg", { class: "chart", viewBox: `0 0 ${W} ${H}`, preserveAspectRatio: "xMidYMid meet", role: "img", "aria-label": ch.label + " over distance" });
+      const grid = (v) => {
+        const y = Y(v);
+        const l = svgEl("line", { x1: padL, x2: W - padR, y1: y.toFixed(1), y2: y.toFixed(1), "stroke-width": 1, opacity: .6 });
+        l.style.stroke = "var(--border)";
+        svg.appendChild(l);
+        const t = svgEl("text", { x: (padL - 6).toFixed(1), y: (y + 6).toFixed(1), "font-size": 17, "text-anchor": "end" });
+        t.style.fill = "var(--muted)"; t.style.fontWeight = "600";
+        t.textContent = String(Math.round(v));
+        svg.appendChild(t);
+      };
+      grid(vmax); grid(vmin);
+
+      const line = seg.map((p, i) => `${i ? "L" : "M"}${X(p.dist).toFixed(1)},${Y(p[ch.key]).toFixed(1)}`).join(" ");
+      const area = svgEl("path", { d: `${line} L${X(seg[seg.length - 1].dist).toFixed(1)},${base} L${X(seg[0].dist).toFixed(1)},${base} Z` });
+      area.style.fill = ch.color; area.style.opacity = ".12";
+      svg.appendChild(area);
+      const stroke = svgEl("path", { d: line, fill: "none", "stroke-width": 2.2, "stroke-linejoin": "round" });
+      stroke.style.stroke = ch.color;
+      svg.appendChild(stroke);
+
+      const fig = document.createElement("figure");
+      fig.className = "viz-panel chan-panel";
+      const cap = document.createElement("figcaption");
+      const lbl = document.createElement("span"); lbl.textContent = ch.label;
+      const stat = document.createElement("span"); stat.className = "chstat"; stat.textContent = `avg ${Math.round(avg)} · max ${Math.round(vmax)} ${ch.unit}`;
+      cap.appendChild(lbl); cap.appendChild(stat);
+      fig.appendChild(cap);
+      fig.appendChild(svg);
+      return fig;
+    }
+
     function renderResult(res) {
       // Reveal #result AND #viz first: a display:none container reports width 0,
       // and the OSM basemap fits its tiles to mapView.clientWidth — measuring it
@@ -1213,7 +1401,9 @@
       const track = res.track || { parts: [], hasElevation: false };
       const hasMap = renderMap(track);
       const hasProfile = renderProfile(track);
-      $("viz").classList.toggle("hidden", !(hasMap || hasProfile));
+      renderChannels(track);
+      const hasChannels = !!(track.hasHR || track.hasPower || track.hasCadence);
+      $("viz").classList.toggle("hidden", !(hasMap || hasProfile || hasChannels));
 
       $("parts").innerHTML = res.parts
         .map((p, i) => `<tr>${rowCells("part " + (i + 1), p)}</tr>`).join("");
@@ -1232,7 +1422,7 @@
 
     async function doMerge() {
       const convert = mode === "convert";
-      let files = [...filesInput.files];
+      let files = selectedFiles.slice();
       if (files.length === 0) { setStatus(convert ? "Pick a file to convert." : "Pick at least one file.", "err"); return; }
       if (convert) files = files.slice(0, 1); // convert is one file in, one out
 
@@ -1252,6 +1442,11 @@
           movingThreshold: parseFloat($("moving").value) || 0,
           use3d: $("use3d").checked,
           sport: $("sport").value.trim(),
+          trimStart: (parseFloat($("trimStart").value) || 0) * 1000,
+          trimEnd: (parseFloat($("trimEnd").value) || 0) * 1000,
+          privacyRadius: parseFloat($("privacy").value) || 0,
+          privacyStart: $("privStart").checked,
+          privacyEnd: $("privEnd").checked,
         });
         if (!res.ok) { setStatus(res.error, "err"); return; }
         renderResult(res);
@@ -1302,7 +1497,16 @@
     mergeBtn.addEventListener("click", doMerge);
 
     // Progressive Web App: cache the shell for offline use and installability.
+    // When a new service worker takes over (a new release), reload once so the
+    // fresh HTML and engine load together — never a stale, mismatched pair.
     if ("serviceWorker" in navigator) {
+      const hadController = !!navigator.serviceWorker.controller;
+      let reloading = false;
+      navigator.serviceWorker.addEventListener("controllerchange", () => {
+        if (!hadController || reloading) return; // don't reload on the very first install
+        reloading = true;
+        location.reload();
+      });
       window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
     }
   </script>
