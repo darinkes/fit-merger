@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#7c3aed">
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icon-192.png">
   <title>fitmerge — merge &amp; convert GPX, FIT &amp; TCX activities in your browser</title>
   <meta name="description" content="Merge GPX, FIT and TCX activity files into one, or convert between them (FIT to GPX, GPX to FIT, TCX…) — free, private, and entirely in your browser. Every total is recomputed from the track.">
   <link rel="canonical" href="https://darinkes.github.io/fit-merger/">
@@ -362,7 +364,7 @@
     }
   </style>
 </head>
-<body class="loading">
+<body>
   <main>
     <header class="topbar">
       <div class="brand">
@@ -453,7 +455,7 @@
       <div class="field row" id="sortField"><input id="sort" type="checkbox" checked><label for="sort">Order inputs by start time</label></div>
       <div class="field row"><input id="use3d" type="checkbox"><label for="use3d">Include elevation in distance (3D)</label></div>
 
-      <button id="merge" class="primary" disabled>Loading…</button>
+      <button id="merge" class="primary">Merge activities</button>
       <div id="status"></div>
     </div>
 
@@ -607,7 +609,10 @@
       $("filelist").innerHTML = [...filesInput.files]
         .map((f) => `<span class="chip"><span class="dot"></span>${f.name}</span>`).join("");
     }
-    filesInput.addEventListener("change", renderFileList);
+    // Warm the wasm engine as soon as files are chosen, so it's usually ready by
+    // the time the user clicks — without blocking first paint on the download.
+    const warmWasm = () => ensureWasm().catch(() => {});
+    filesInput.addEventListener("change", () => { renderFileList(); warmWasm(); });
     ["dragenter", "dragover"].forEach((ev) =>
       drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add("drag"); }));
     ["dragleave", "drop"].forEach((ev) =>
@@ -616,6 +621,7 @@
       if (e.dataTransfer && e.dataTransfer.files.length) {
         filesInput.files = e.dataTransfer.files;
         renderFileList();
+        warmWasm();
       }
     });
 
@@ -632,7 +638,6 @@
     try { const m = localStorage.getItem("fitmerge-mode"); if (m === "merge" || m === "convert") mode = m; } catch (e) {}
 
     function updateActionLabel() {
-      if (mergeBtn.disabled && mergeBtn.textContent === "Loading…") return; // wasm not ready yet
       mergeBtn.textContent = mode === "convert" ? "Convert to " + outputFormat.toUpperCase() : "Merge activities";
     }
 
@@ -1234,6 +1239,7 @@
       mergeBtn.disabled = true;
       setStatus(convert ? "Converting…" : "Merging…");
       try {
+        await ensureWasm(); // fetch + init the engine on demand (usually already warmed)
         const inputs = await Promise.all(files.map(async (f) => ({
           name: f.name,
           data: new Uint8Array(await f.arrayBuffer()),
@@ -1266,26 +1272,39 @@
       }
     }
 
-    // --- wasm bootstrap -----------------------------------------------
-    window.onFitmergeReady = () => {
-      document.body.classList.remove("loading");
-      mergeBtn.disabled = false;
-      updateActionLabel();
-      $("version").textContent = "fitmerge " + fitmerge.version;
-      setStatus("Ready.");
-    };
+    // --- wasm bootstrap (lazy) ----------------------------------------
+    // The engine is ~6 MB, so we don't fetch it on page load — the page is
+    // interactive immediately, and the module is downloaded and initialised the
+    // first time it's needed (warmed on file selection, awaited on merge). The
+    // result is memoised; a failure clears it so a later attempt can retry.
+    let wasmReady = null;
+    function ensureWasm() {
+      if (wasmReady) return wasmReady;
+      wasmReady = new Promise((resolve, reject) => {
+        window.onFitmergeReady = () => {
+          $("version").textContent = "fitmerge " + fitmerge.version;
+          resolve();
+        };
+        (async () => {
+          try {
+            const go = new Go();
+            const buf = await (await fetch("fitmerge.wasm")).arrayBuffer();
+            const { instance } = await WebAssembly.instantiate(buf, go.importObject);
+            go.run(instance); // blocks in Go; onFitmergeReady fires once the API is set
+          } catch (e) {
+            wasmReady = null; // allow a retry on the next attempt
+            reject(e);
+          }
+        })();
+      });
+      return wasmReady;
+    }
     mergeBtn.addEventListener("click", doMerge);
 
-    (async () => {
-      try {
-        const go = new Go();
-        const buf = await (await fetch("fitmerge.wasm")).arrayBuffer();
-        const { instance } = await WebAssembly.instantiate(buf, go.importObject);
-        go.run(instance); // blocks in Go; onFitmergeReady fires once the API is set
-      } catch (e) {
-        setStatus("Failed to load WebAssembly module: " + e.message, "err");
-      }
-    })();
+    // Progressive Web App: cache the shell for offline use and installability.
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+    }
   </script>
 </body>
 </html>
