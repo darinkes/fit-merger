@@ -314,6 +314,7 @@
     #channels:empty { display: none; }
     .chan-panel figcaption { display: flex; align-items: baseline; justify-content: space-between; gap: .6rem; }
     .chan-panel .chstat { font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--muted); }
+    .chan-panel .chart { cursor: crosshair; touch-action: pan-y; }
     .chart { width: 100%; height: auto; display: block; }
     #map { max-height: 440px; }
     .chart path, .chart polyline, .chart line { vector-effect: non-scaling-stroke; }
@@ -1382,6 +1383,49 @@
       const stroke = svgEl("path", { d: line, fill: "none", "stroke-width": 2.2, "stroke-linejoin": "round" });
       stroke.style.stroke = ch.color;
       svg.appendChild(stroke);
+
+      // Hover crosshair: a vertical guide + marker + label showing the distance
+      // and this channel's value at the nearest point (same idea as elevation).
+      const hover = svgEl("g", { class: "profile-hover", visibility: "hidden" });
+      const vline = svgEl("line", { y1: padTop - 4, y2: base, "stroke-width": 1.4 });
+      vline.style.stroke = ch.color; vline.style.strokeDasharray = "5 4";
+      const marker = svgEl("circle", { r: 4.5 });
+      marker.style.fill = ch.color; marker.style.stroke = "var(--card-solid)"; marker.style.strokeWidth = 2;
+      const labelBg = svgEl("rect", { rx: 6, ry: 6 });
+      labelBg.style.fill = "var(--card-solid)"; labelBg.style.stroke = "var(--border-strong)";
+      const labelText = svgEl("text", { "font-size": 20 });
+      labelText.style.fill = "var(--fg)"; labelText.style.fontWeight = "700";
+      hover.appendChild(vline); hover.appendChild(marker); hover.appendChild(labelBg); hover.appendChild(labelText);
+      svg.appendChild(hover);
+
+      svg.addEventListener("pointermove", (e) => {
+        const ctm = svg.getScreenCTM();
+        if (!ctm) return;
+        const pt = svg.createSVGPoint();
+        pt.x = e.clientX; pt.y = e.clientY;
+        const loc = pt.matrixTransform(ctm.inverse());
+        let d = (loc.x - padL) / (W - padL - padR) * dmax;
+        d = Math.max(0, Math.min(dmax, d));
+        let idx = 0;
+        for (let i = 1; i < seg.length; i++) {
+          if (Math.abs(seg[i].dist - d) < Math.abs(seg[idx].dist - d)) idx = i;
+        }
+        const p = seg[idx];
+        const cx = X(p.dist), cy = Y(p[ch.key]);
+        vline.setAttribute("x1", cx.toFixed(1)); vline.setAttribute("x2", cx.toFixed(1));
+        marker.setAttribute("cx", cx.toFixed(1)); marker.setAttribute("cy", cy.toFixed(1));
+        labelText.textContent = `${(p.dist / 1000).toFixed(2)} km · ${Math.round(p[ch.key])} ${ch.unit}`;
+        const flip = cx > W * 0.72;
+        const lx = flip ? cx - 9 : cx + 9;
+        labelText.setAttribute("text-anchor", flip ? "end" : "start");
+        labelText.setAttribute("x", lx.toFixed(1));
+        labelText.setAttribute("y", (padTop + 14).toFixed(1));
+        hover.setAttribute("visibility", "visible");
+        const bb = labelText.getBBox();
+        labelBg.setAttribute("x", (bb.x - 6).toFixed(1)); labelBg.setAttribute("y", (bb.y - 4).toFixed(1));
+        labelBg.setAttribute("width", (bb.width + 12).toFixed(1)); labelBg.setAttribute("height", (bb.height + 8).toFixed(1));
+      });
+      svg.addEventListener("pointerleave", () => hover.setAttribute("visibility", "hidden"));
 
       const fig = document.createElement("figure");
       fig.className = "viz-panel chan-panel";
