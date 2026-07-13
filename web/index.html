@@ -514,6 +514,14 @@
     // Distinct hues kept inside the violet→magenta range so every part stays "on brand".
     const partColor = (i) => `hsl(${255 + (i * 34) % 78} 72% 60%)`;
     const reduceMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    // A "nice" round tick step (1/2/5 × 10ⁿ) giving roughly `count` divisions —
+    // used to place the elevation/distance gridlines on the profile.
+    const niceStep = (span, count) => {
+      const raw = Math.max(span, 1e-6) / count;
+      const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+      const n = raw / mag;
+      return (n < 1.5 ? 1 : n < 3 ? 2 : n < 7 ? 5 : 10) * mag;
+    };
 
     const ICON = {
       route: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="19" r="2"/><circle cx="18" cy="5" r="2"/><path d="M8 19h5a4 4 0 0 0 0-8H9a4 4 0 0 1 0-8h3"/></svg>',
@@ -696,14 +704,42 @@
       if (!track.hasElevation || pts.length < 2) { $("profilePanel").classList.add("hidden"); profileData = null; return false; }
       $("profilePanel").classList.remove("hidden");
 
-      const W = 1000, H = 300, padX = 10, padTop = 24, padBot = 42;
+      const W = 1000, H = 300, padL = 50, padR = 14, padTop = 20, padBot = 40;
       const dmax = pts[pts.length - 1].dist || 1;
       let emin = Infinity, emax = -Infinity;
       for (const p of pts) { if (p.ele < emin) emin = p.ele; if (p.ele > emax) emax = p.ele; }
       if (emax - emin < 1) { emin -= 1; emax += 1; }
-      const X = (d) => padX + d / dmax * (W - 2 * padX);
-      const Y = (e) => padTop + (emax - e) / (emax - emin) * (H - padTop - padBot);
+      // Strava-style vertical scale: give the profile headroom above and below
+      // rather than pinning the lowest point to the floor, so the axis reads as a
+      // scale (with round elevation gridlines) instead of a line sitting on zero.
+      const eRange = emax - emin;
+      const lo = emin - eRange * 0.12, hi = emax + eRange * 0.18;
+      const X = (d) => padL + d / dmax * (W - padL - padR);
+      const Y = (e) => padTop + (hi - e) / (hi - lo) * (H - padTop - padBot);
+      const base = H - padBot;
       svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+
+      // Faint reference grid + round-number axis labels (elevation left, distance
+      // bottom), drawn first so the area fill washes over them like on Strava.
+      const gridLine = (a) => { const l = svgEl("line", a); l.style.stroke = "var(--border)"; svg.appendChild(l); };
+      const axisLabel = (x, y, txt, anchor) => {
+        const t = svgEl("text", { x: x.toFixed(1), y: y.toFixed(1), "font-size": 17, "text-anchor": anchor || "start" });
+        t.style.fill = "var(--muted)"; t.style.fontWeight = "600";
+        t.textContent = txt; svg.appendChild(t);
+      };
+      const eStep = niceStep(hi - lo, 4);
+      for (let g = Math.ceil(lo / eStep) * eStep; g <= hi + 1e-6; g += eStep) {
+        const gy = Y(g);
+        gridLine({ x1: padL, x2: W - padR, y1: gy.toFixed(1), y2: gy.toFixed(1), "stroke-width": 1, opacity: .7 });
+        axisLabel(padL - 6, gy + 6, String(Math.round(g)), "end");
+      }
+      const dStep = niceStep(dmax, 5);
+      for (let d = 0; d <= dmax + 1e-6; d += dStep) {
+        const gx = X(d), last = d + dStep > dmax + 1e-6;
+        gridLine({ x1: gx.toFixed(1), x2: gx.toFixed(1), y1: padTop, y2: base, "stroke-width": 1, opacity: .5 });
+        const num = dStep >= 1000 ? Math.round(d / 1000) : (d / 1000).toFixed(1);
+        axisLabel(gx, base + 26, num + (last ? " km" : ""), d === 0 ? "start" : last ? "end" : "middle");
+      }
 
       const defs = svgEl("defs", {});
       const grad = svgEl("linearGradient", { id: "eleGrad", x1: 0, y1: 0, x2: 0, y2: 1 });
@@ -718,22 +754,10 @@
       svg.appendChild(defs);
 
       const line = pts.map((p, i) => `${i ? "L" : "M"}${X(p.dist).toFixed(1)},${Y(p.ele).toFixed(1)}`).join(" ");
-      const base = H - padBot;
       svg.appendChild(svgEl("path", { d: `${line} L${X(dmax).toFixed(1)},${base} L${X(0).toFixed(1)},${base} Z`, fill: "url(#eleGrad)" }));
       const stroke = svgEl("path", { d: line, fill: "none", "stroke-width": 2.6, "stroke-linejoin": "round" });
       stroke.style.stroke = "var(--accent)";
       svg.appendChild(stroke);
-
-      const label = (x, y, txt, anchor) => {
-        const t = svgEl("text", { x, y, "font-size": 26, "text-anchor": anchor || "start" });
-        t.style.fill = "var(--muted)";
-        t.style.fontWeight = "600";
-        t.textContent = txt;
-        svg.appendChild(t);
-      };
-      label(padX + 2, 22, Math.round(emax) + " m");
-      label(padX + 2, base + 32, Math.round(emin) + " m");
-      label(W - padX - 2, base + 32, (dmax / 1000).toFixed(1) + " km", "end");
 
       // Interactive crosshair, appended last so it sits above the profile: a
       // vertical guide line + a marker on the curve + a floating distance label,
@@ -764,7 +788,7 @@
       hover.appendChild(labelText);
       svg.appendChild(hover);
 
-      profileData = { pts, X, Y, dmax, W, padX, padTop, base, hover, vline, marker, labelBg, labelText, kmSpan, eleSpan };
+      profileData = { pts, X, Y, dmax, W, padL, padR, padTop, base, hover, vline, marker, labelBg, labelText, kmSpan, eleSpan };
       return true;
     }
 
@@ -779,8 +803,8 @@
       const pt = svg.createSVGPoint();
       pt.x = e.clientX; pt.y = e.clientY;
       const loc = pt.matrixTransform(ctm.inverse());
-      const { pts, X, Y, dmax, W, padX, padTop, hover, vline, marker, labelBg, labelText, kmSpan, eleSpan } = profileData;
-      let d = (loc.x - padX) / (W - 2 * padX) * dmax;
+      const { pts, X, Y, dmax, W, padL, padR, padTop, hover, vline, marker, labelBg, labelText, kmSpan, eleSpan } = profileData;
+      let d = (loc.x - padL) / (W - padL - padR) * dmax;
       d = Math.max(0, Math.min(dmax, d));
       // Nearest sample by cumulative distance (points are already in order).
       let idx = 0;
