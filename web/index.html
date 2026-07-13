@@ -234,7 +234,9 @@
     .chart { width: 100%; height: auto; display: block; }
     #map { max-height: 440px; }
     .chart path, .chart polyline, .chart line { vector-effect: non-scaling-stroke; }
-    #profile { cursor: crosshair; touch-action: none; }
+    /* pan-y lets a vertical swipe scroll the page while a horizontal drag still
+       scrubs the hover crosshair — so the full-width chart isn't a scroll trap. */
+    #profile { cursor: crosshair; touch-action: pan-y; }
     .profile-hover { pointer-events: none; }
     .legend { display: flex; flex-wrap: wrap; gap: .45rem .9rem; margin-top: .65rem; font-size: .78rem; color: var(--muted); }
     .legend span { display: inline-flex; align-items: center; gap: .4rem; }
