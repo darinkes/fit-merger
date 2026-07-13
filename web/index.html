@@ -881,9 +881,6 @@
     // Cached parsed track + bounds, so the basemap can be switched (or the
     // window resized) without re-running a merge.
     let mapData = null;
-    // Cached elevation-profile scales + hover elements, so the crosshair handler
-    // can map a pointer position back to a point without re-rendering.
-    let profileData = null;
     // Interactive OSM basemap state: integer zoom + the world-pixel coordinate of
     // the viewport's top-left corner, plus a tile cache keyed by "z:tx:ty" that is
     // reused across pans/zooms so tiles reposition instead of reloading.
@@ -1176,11 +1173,66 @@
 
     // Elevation profile (distance vs. altitude) as a filled area. Rendered
     // full-width with large labels so the metre/km readouts stay legible.
+    // --- Synced hover crosshair shared across the elevation + data charts ---
+    // Hovering any chart drives a crosshair at the same distance on all of them,
+    // so one hover reads out every metric at that point on the route.
+    let syncCharts = [];
+    function hideSyncHover() { for (const c of syncCharts) c.hover.setAttribute("visibility", "hidden"); }
+    function syncHover(d) {
+      for (const c of syncCharts) {
+        const pts = c.pts;
+        if (d < pts[0].dist - 1 || d > pts[pts.length - 1].dist + 1) { c.hover.setAttribute("visibility", "hidden"); continue; }
+        let idx = 0;
+        for (let i = 1; i < pts.length; i++) if (Math.abs(pts[i].dist - d) < Math.abs(pts[idx].dist - d)) idx = i;
+        const p = pts[idx];
+        const v = c.value(p);
+        if (!Number.isFinite(v)) { c.hover.setAttribute("visibility", "hidden"); continue; }
+        const cx = c.X(p.dist), cy = c.Y(v);
+        c.vline.setAttribute("x1", cx.toFixed(1)); c.vline.setAttribute("x2", cx.toFixed(1));
+        c.marker.setAttribute("cx", cx.toFixed(1)); c.marker.setAttribute("cy", cy.toFixed(1));
+        c.labelText.textContent = `${(p.dist / 1000).toFixed(2)} km · ${Math.round(v)} ${c.unit}`;
+        const flip = cx > c.W * 0.72;
+        c.labelText.setAttribute("text-anchor", flip ? "end" : "start");
+        c.labelText.setAttribute("x", (flip ? cx - 9 : cx + 9).toFixed(1));
+        c.labelText.setAttribute("y", c.labelY.toFixed(1));
+        c.hover.setAttribute("visibility", "visible");
+        const bb = c.labelText.getBBox();
+        c.labelBg.setAttribute("x", (bb.x - 6).toFixed(1)); c.labelBg.setAttribute("y", (bb.y - 4).toFixed(1));
+        c.labelBg.setAttribute("width", (bb.width + 12).toFixed(1)); c.labelBg.setAttribute("height", (bb.height + 8).toFixed(1));
+      }
+    }
+
+    // addSyncedCrosshair draws a crosshair on `svg` and registers it, so a pointer
+    // over any chart moves the crosshair on every chart. opts carries the chart's
+    // scales, its value accessor, unit, colour and geometry.
+    function addSyncedCrosshair(svg, opts) {
+      const hover = svgEl("g", { class: "profile-hover", visibility: "hidden" });
+      const vline = svgEl("line", { y1: opts.top, y2: opts.base, "stroke-width": 1.4 });
+      vline.style.stroke = opts.color; vline.style.strokeDasharray = "5 4";
+      const marker = svgEl("circle", { r: opts.r || 5 });
+      marker.style.fill = opts.color; marker.style.stroke = "var(--card-solid)"; marker.style.strokeWidth = 2.2;
+      const labelBg = svgEl("rect", { rx: 6, ry: 6 });
+      labelBg.style.fill = "var(--card-solid)"; labelBg.style.stroke = "var(--border-strong)";
+      const labelText = svgEl("text", { "font-size": 20 });
+      labelText.style.fill = "var(--fg)"; labelText.style.fontWeight = "700";
+      hover.appendChild(vline); hover.appendChild(marker); hover.appendChild(labelBg); hover.appendChild(labelText);
+      svg.appendChild(hover);
+      syncCharts.push({ hover, vline, marker, labelBg, labelText, pts: opts.pts, X: opts.X, Y: opts.Y, value: opts.value, unit: opts.unit, W: opts.W, labelY: opts.labelY });
+      const toDist = (e) => {
+        const ctm = svg.getScreenCTM(); if (!ctm) return null;
+        const pt = svg.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY;
+        const x = pt.matrixTransform(ctm.inverse()).x;
+        return Math.max(0, Math.min(opts.dmax, (x - opts.padL) / (opts.W - opts.padL - opts.padR) * opts.dmax));
+      };
+      svg.addEventListener("pointermove", (e) => { const d = toDist(e); if (d != null) syncHover(d); });
+      svg.addEventListener("pointerleave", hideSyncHover);
+    }
+
     function renderProfile(track) {
       const svg = $("profile");
       svg.innerHTML = "";
       const pts = (track.parts || []).flatMap(toPoints);
-      if (!track.hasElevation || pts.length < 2) { $("profilePanel").classList.add("hidden"); profileData = null; return false; }
+      if (!track.hasElevation || pts.length < 2) { $("profilePanel").classList.add("hidden"); return false; }
       $("profilePanel").classList.remove("hidden");
 
       const W = 1000, H = 300, padL = 50, padR = 14, padTop = 20, padBot = 40;
@@ -1238,87 +1290,13 @@
       stroke.style.stroke = "var(--accent)";
       svg.appendChild(stroke);
 
-      // Interactive crosshair, appended last so it sits above the profile: a
-      // vertical guide line + a marker on the curve + a floating distance label,
-      // all hidden until the pointer enters (see moveProfileHover).
-      const hover = svgEl("g", { class: "profile-hover", visibility: "hidden" });
-      const vline = svgEl("line", { x1: 0, x2: 0, y1: padTop - 6, y2: base, "stroke-width": 1.4 });
-      vline.style.stroke = "var(--accent)";
-      vline.style.strokeDasharray = "5 4";
-      const marker = svgEl("circle", { r: 5 });
-      marker.style.fill = "var(--accent)";
-      marker.style.stroke = "var(--card-solid)";
-      marker.style.strokeWidth = 2.5;
-      const labelBg = svgEl("rect", { rx: 7, ry: 7 });
-      labelBg.style.fill = "var(--card-solid)";
-      labelBg.style.stroke = "var(--border-strong)";
-      const labelText = svgEl("text", { "font-size": 24 });
-      const kmSpan = svgEl("tspan", {});
-      kmSpan.style.fill = "var(--fg)";
-      kmSpan.style.fontWeight = "700";
-      const eleSpan = svgEl("tspan", { dy: "1.2em" });
-      eleSpan.style.fill = "var(--muted)";
-      eleSpan.style.fontWeight = "600";
-      labelText.appendChild(kmSpan);
-      labelText.appendChild(eleSpan);
-      hover.appendChild(vline);
-      hover.appendChild(marker);
-      hover.appendChild(labelBg);
-      hover.appendChild(labelText);
-      svg.appendChild(hover);
-
-      profileData = { pts, X, Y, dmax, W, padL, padR, padTop, base, hover, vline, marker, labelBg, labelText, kmSpan, eleSpan };
+      // Interactive crosshair, synced with the data charts below.
+      addSyncedCrosshair(svg, {
+        pts, X, Y, value: (p) => p.ele, unit: "m", color: "var(--accent)",
+        W, padL, padR, dmax, top: padTop - 6, base, labelY: padTop + 14, r: 5,
+      });
       return true;
     }
-
-    // Move the elevation crosshair to the point nearest the pointer, showing its
-    // cumulative distance (km) and elevation. Uses the SVG CTM so it stays exact
-    // regardless of how the chart is scaled to fit the page.
-    function moveProfileHover(e) {
-      if (!profileData) return;
-      const svg = $("profile");
-      const ctm = svg.getScreenCTM();
-      if (!ctm) return;
-      const pt = svg.createSVGPoint();
-      pt.x = e.clientX; pt.y = e.clientY;
-      const loc = pt.matrixTransform(ctm.inverse());
-      const { pts, X, Y, dmax, W, padL, padR, padTop, hover, vline, marker, labelBg, labelText, kmSpan, eleSpan } = profileData;
-      let d = (loc.x - padL) / (W - padL - padR) * dmax;
-      d = Math.max(0, Math.min(dmax, d));
-      // Nearest sample by cumulative distance (points are already in order).
-      let idx = 0;
-      for (let i = 1; i < pts.length; i++) {
-        if (Math.abs(pts[i].dist - d) < Math.abs(pts[idx].dist - d)) idx = i;
-      }
-      const p = pts[idx];
-      const cx = X(p.dist), cy = Y(p.ele);
-      vline.setAttribute("x1", cx.toFixed(1));
-      vline.setAttribute("x2", cx.toFixed(1));
-      marker.setAttribute("cx", cx.toFixed(1));
-      marker.setAttribute("cy", cy.toFixed(1));
-      kmSpan.textContent = (p.dist / 1000).toFixed(2) + " km";
-      eleSpan.textContent = Math.round(p.ele) + " m";
-      // Flip the label to the other side of the line near the right edge so it
-      // never runs off the chart.
-      const flip = cx > W * 0.72;
-      const lx = flip ? cx - 10 : cx + 10;
-      labelText.setAttribute("text-anchor", flip ? "end" : "start");
-      kmSpan.setAttribute("x", lx.toFixed(1));
-      eleSpan.setAttribute("x", lx.toFixed(1));
-      labelText.setAttribute("y", (padTop + 6).toFixed(1));
-      hover.setAttribute("visibility", "visible");
-      // Size the backing plate to the text now that it has content.
-      const bb = labelText.getBBox();
-      labelBg.setAttribute("x", (bb.x - 7).toFixed(1));
-      labelBg.setAttribute("y", (bb.y - 5).toFixed(1));
-      labelBg.setAttribute("width", (bb.width + 14).toFixed(1));
-      labelBg.setAttribute("height", (bb.height + 10).toFixed(1));
-    }
-    function hideProfileHover() {
-      if (profileData) profileData.hover.setAttribute("visibility", "hidden");
-    }
-    $("profile").addEventListener("pointermove", moveProfileHover);
-    $("profile").addEventListener("pointerleave", hideProfileHover);
 
     // --- HR / power / cadence charts ----------------------------------
     // Distinct semantic hues so the channels are told apart at a glance; each is
@@ -1384,48 +1362,11 @@
       stroke.style.stroke = ch.color;
       svg.appendChild(stroke);
 
-      // Hover crosshair: a vertical guide + marker + label showing the distance
-      // and this channel's value at the nearest point (same idea as elevation).
-      const hover = svgEl("g", { class: "profile-hover", visibility: "hidden" });
-      const vline = svgEl("line", { y1: padTop - 4, y2: base, "stroke-width": 1.4 });
-      vline.style.stroke = ch.color; vline.style.strokeDasharray = "5 4";
-      const marker = svgEl("circle", { r: 4.5 });
-      marker.style.fill = ch.color; marker.style.stroke = "var(--card-solid)"; marker.style.strokeWidth = 2;
-      const labelBg = svgEl("rect", { rx: 6, ry: 6 });
-      labelBg.style.fill = "var(--card-solid)"; labelBg.style.stroke = "var(--border-strong)";
-      const labelText = svgEl("text", { "font-size": 20 });
-      labelText.style.fill = "var(--fg)"; labelText.style.fontWeight = "700";
-      hover.appendChild(vline); hover.appendChild(marker); hover.appendChild(labelBg); hover.appendChild(labelText);
-      svg.appendChild(hover);
-
-      svg.addEventListener("pointermove", (e) => {
-        const ctm = svg.getScreenCTM();
-        if (!ctm) return;
-        const pt = svg.createSVGPoint();
-        pt.x = e.clientX; pt.y = e.clientY;
-        const loc = pt.matrixTransform(ctm.inverse());
-        let d = (loc.x - padL) / (W - padL - padR) * dmax;
-        d = Math.max(0, Math.min(dmax, d));
-        let idx = 0;
-        for (let i = 1; i < seg.length; i++) {
-          if (Math.abs(seg[i].dist - d) < Math.abs(seg[idx].dist - d)) idx = i;
-        }
-        const p = seg[idx];
-        const cx = X(p.dist), cy = Y(p[ch.key]);
-        vline.setAttribute("x1", cx.toFixed(1)); vline.setAttribute("x2", cx.toFixed(1));
-        marker.setAttribute("cx", cx.toFixed(1)); marker.setAttribute("cy", cy.toFixed(1));
-        labelText.textContent = `${(p.dist / 1000).toFixed(2)} km · ${Math.round(p[ch.key])} ${ch.unit}`;
-        const flip = cx > W * 0.72;
-        const lx = flip ? cx - 9 : cx + 9;
-        labelText.setAttribute("text-anchor", flip ? "end" : "start");
-        labelText.setAttribute("x", lx.toFixed(1));
-        labelText.setAttribute("y", (padTop + 14).toFixed(1));
-        hover.setAttribute("visibility", "visible");
-        const bb = labelText.getBBox();
-        labelBg.setAttribute("x", (bb.x - 6).toFixed(1)); labelBg.setAttribute("y", (bb.y - 4).toFixed(1));
-        labelBg.setAttribute("width", (bb.width + 12).toFixed(1)); labelBg.setAttribute("height", (bb.height + 8).toFixed(1));
+      // Crosshair synced with the elevation profile and the other data charts.
+      addSyncedCrosshair(svg, {
+        pts: seg, X, Y, value: (p) => p[ch.key], unit: ch.unit, color: ch.color,
+        W, padL, padR, dmax, top: padTop - 4, base, labelY: padTop + 14, r: 4.5,
       });
-      svg.addEventListener("pointerleave", () => hover.setAttribute("visibility", "hidden"));
 
       const fig = document.createElement("figure");
       fig.className = "viz-panel chan-panel";
@@ -1446,6 +1387,7 @@
       $("viz").classList.remove("hidden");
       renderStats(res.summary);
       const track = res.track || { parts: [], hasElevation: false };
+      syncCharts = []; // rebuild the crosshair registry for this result
       const hasMap = renderMap(track);
       const hasProfile = renderProfile(track);
       renderChannels(track);
