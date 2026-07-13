@@ -74,7 +74,7 @@ func mergeFn(_ js.Value, args []js.Value) (result any) {
 		return fail("no input files")
 	}
 
-	outKind := format.Kind(optString(opts, "format", "gpx"))
+	outKind := format.Kind(optString(opts, "format", "fit"))
 	if outKind != format.GPX && outKind != format.FIT && outKind != format.TCX {
 		return fail(fmt.Sprintf("invalid output format %q (want gpx, fit or tcx)", outKind))
 	}

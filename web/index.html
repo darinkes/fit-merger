@@ -423,8 +423,8 @@
       <div class="field">
         <label>Output format</label>
         <div class="segmented" id="format" role="group" aria-label="Output format">
-          <button type="button" data-fmt="gpx" aria-pressed="true">GPX</button>
-          <button type="button" data-fmt="fit" aria-pressed="false">FIT</button>
+          <button type="button" data-fmt="gpx" aria-pressed="false">GPX</button>
+          <button type="button" data-fmt="fit" aria-pressed="true">FIT</button>
           <button type="button" data-fmt="tcx" aria-pressed="false">TCX</button>
         </div>
       </div>
@@ -553,7 +553,7 @@
     const $ = (id) => document.getElementById(id);
     const statusEl = $("status");
     const mergeBtn = $("merge");
-    let outputFormat = "gpx";
+    let outputFormat = "fit";
     let downloadURL = null;
 
     // --- theme toggle -------------------------------------------------
