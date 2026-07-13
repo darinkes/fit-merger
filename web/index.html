@@ -197,6 +197,7 @@
     .advanced summary::before { content: "▸"; color: var(--accent); }
     .advanced[open] summary::before { content: "▾"; }
     .advanced .grid { margin-top: .5rem; }
+    .advanced .subhead { margin-top: 1.3rem; padding-top: 1rem; border-top: 1px solid var(--border); font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
 
     /* Drop zone -------------------------------------------------------- */
     .dropzone {
@@ -452,34 +453,36 @@
         </div>
       </div>
 
-      <div class="field grid">
-        <div id="overlapField">
-          <label for="overlap">Time overlap</label>
-          <select id="overlap">
-            <option value="error" selected>Error (safest)</option>
-            <option value="trim">Trim later file</option>
-            <option value="keep">Keep both</option>
-          </select>
-        </div>
-        <div>
-          <label for="sport">Sport <span class="hint">(optional)</span></label>
-          <input id="sport" type="text" placeholder="e.g. cycling">
-        </div>
-        <div>
-          <label for="ascent">Ascent threshold (m)</label>
-          <input id="ascent" type="number" value="3" min="0" step="0.5">
-        </div>
-        <div>
-          <label for="moving">Moving threshold (m/s)</label>
-          <input id="moving" type="number" value="0.5" min="0" step="0.1">
-        </div>
-      </div>
+      <details class="advanced" id="advanced">
+        <summary>Advanced options</summary>
 
-      <div class="field row" id="sortField"><input id="sort" type="checkbox" checked><label for="sort">Order inputs by start time</label></div>
-      <div class="field row"><input id="use3d" type="checkbox"><label for="use3d">Include elevation in distance (3D)</label></div>
+        <div class="field grid">
+          <div id="overlapField">
+            <label for="overlap">Time overlap</label>
+            <select id="overlap">
+              <option value="error" selected>Error (safest)</option>
+              <option value="trim">Trim later file</option>
+              <option value="keep">Keep both</option>
+            </select>
+          </div>
+          <div>
+            <label for="sport">Sport <span class="hint">(optional)</span></label>
+            <input id="sport" type="text" placeholder="e.g. cycling">
+          </div>
+          <div>
+            <label for="ascent">Ascent threshold (m)</label>
+            <input id="ascent" type="number" value="3" min="0" step="0.5">
+          </div>
+          <div>
+            <label for="moving">Moving threshold (m/s)</label>
+            <input id="moving" type="number" value="0.5" min="0" step="0.1">
+          </div>
+        </div>
 
-      <details class="advanced">
-        <summary>Trim &amp; privacy <span class="hint">— optional</span></summary>
+        <div class="field row" id="sortField"><input id="sort" type="checkbox" checked><label for="sort">Order inputs by start time</label></div>
+        <div class="field row"><input id="use3d" type="checkbox"><label for="use3d">Include elevation in distance (3D)</label></div>
+
+        <div class="subhead">Trim &amp; privacy</div>
         <div class="field grid">
           <div>
             <label for="trimStart">Trim start (km)</label>
@@ -499,7 +502,7 @@
               <input id="privEnd" type="checkbox" style="margin-left:.9rem"><label for="privEnd">End</label></div>
           </div>
         </div>
-        <p class="hint" style="margin:.4rem 0 0">Removes points from the ends (by distance) or within a radius of the start/finish, then recomputes every total.</p>
+        <p class="hint" style="margin:.4rem 0 0">Trim removes points from the ends by distance; the privacy zone hides points within a radius of the start/finish. Totals are recomputed either way.</p>
       </details>
 
       <button id="merge" class="primary">Merge activities</button>
@@ -1448,7 +1451,7 @@
           privacyStart: $("privStart").checked,
           privacyEnd: $("privEnd").checked,
         });
-        if (!res.ok) { setStatus(res.error, "err"); return; }
+        if (!res.ok) { setStatus(res.error, "err"); if (/overlap/i.test(res.error)) $("advanced").open = true; return; }
         renderResult(res);
         if (convert) {
           // Name the converted file after its source (ride.fit -> ride.gpx).
