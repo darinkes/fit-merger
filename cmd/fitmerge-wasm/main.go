@@ -11,7 +11,9 @@
 // where inputs is an array of { name: string, data: Uint8Array } and options is
 //
 //	{ format: "gpx"|"fit"|"tcx", sort: bool, overlap: "error"|"keep"|"trim",
-//	  ascentThreshold: number, movingThreshold: number, use3d: bool, sport: string }
+//	  ascentThreshold: number, movingThreshold: number, use3d: bool, sport: string,
+//	  trimStart: meters, trimEnd: meters,
+//	  privacyRadius: meters, privacyStart: bool, privacyEnd: bool }
 //
 // and result is
 //
@@ -24,7 +26,9 @@ package main
 import (
 	"fmt"
 	"syscall/js"
+	"time"
 
+	"github.com/darinkes/fit-merger/internal/editing"
 	"github.com/darinkes/fit-merger/internal/format"
 	"github.com/darinkes/fit-merger/internal/merge"
 	"github.com/darinkes/fit-merger/internal/model"
@@ -39,6 +43,7 @@ func main() {
 	obj := js.Global().Get("Object").New()
 	obj.Set("version", version)
 	obj.Set("merge", js.FuncOf(mergeFn))
+	obj.Set("inspect", js.FuncOf(inspectFn))
 	js.Global().Set("fitmerge", obj)
 
 	// Let the page know the API is ready, then block forever so the exported
@@ -102,6 +107,33 @@ func mergeFn(_ js.Value, args []js.Value) (result any) {
 		res.Activity.Sport = sport
 	}
 
+	// Optional trim / privacy editing: remove records from the ends, then re-run
+	// the merge on the single edited activity so distance is re-based and every
+	// total recomputed by the same trusted path.
+	trimStart := optFloat(opts, "trimStart", 0)
+	trimEnd := optFloat(opts, "trimEnd", 0)
+	privRadius := optFloat(opts, "privacyRadius", 0)
+	privStart := optBool(opts, "privacyStart", false)
+	privEnd := optBool(opts, "privacyEnd", false)
+	if trimStart > 0 || trimEnd > 0 || (privRadius > 0 && (privStart || privEnd)) {
+		recs := editing.Trim(res.Activity.Records, trimStart, trimEnd)
+		recs = editing.PrivacyZone(recs, privRadius, privStart, privEnd)
+		if len(recs) < 2 {
+			return fail("trim/privacy settings removed the whole activity")
+		}
+		edited := model.Activity{
+			Sport:   res.Activity.Sport,
+			Records: recs,
+			Device:  res.Activity.Device,
+			Active:  clipSpans(res.Activity.Active, recs[0].Time, recs[len(recs)-1].Time),
+			Sources: res.Activity.Sources,
+		}
+		res, err = merge.Merge([]model.Activity{edited}, merge.Options{Overlap: merge.OverlapKeep, Stats: statOpts})
+		if err != nil {
+			return fail(err.Error())
+		}
+	}
+
 	data, err := format.Encode(outKind, res.Activity, res.Summary)
 	if err != nil {
 		return fail(err.Error())
@@ -121,26 +153,81 @@ func mergeFn(_ js.Value, args []js.Value) (result any) {
 	}
 }
 
+// clipSpans restricts timer-on spans to the [lo, hi] window left after trimming,
+// so moving time reflects only the kept portion of the activity.
+func clipSpans(spans []model.TimeSpan, lo, hi time.Time) []model.TimeSpan {
+	if len(spans) == 0 {
+		return nil
+	}
+	out := make([]model.TimeSpan, 0, len(spans))
+	for _, s := range spans {
+		start, end := s.Start, s.End
+		if start.Before(lo) {
+			start = lo
+		}
+		if end.After(hi) {
+			end = hi
+		}
+		if end.After(start) {
+			out = append(out, model.TimeSpan{Start: start, End: end})
+		}
+	}
+	return out
+}
+
+// inspectFn decodes a single input and returns its recomputed summary, used for
+// the browser's per-file preview before a merge. No output is encoded.
+func inspectFn(_ js.Value, args []js.Value) (result any) {
+	defer func() {
+		if r := recover(); r != nil {
+			result = fail(fmt.Sprintf("internal error: %v", r))
+		}
+	}()
+	if len(args) < 1 || args[0].Type() != js.TypeObject {
+		return fail("inspect(input): input must be an object")
+	}
+	item := args[0]
+	name := item.Get("name").String()
+	kind, err := format.Detect(name)
+	if err != nil {
+		return fail(err.Error())
+	}
+	act, err := format.Decode(bytesFromUint8Array(item.Get("data")), kind)
+	if err != nil {
+		return fail(err.Error())
+	}
+	return map[string]any{
+		"ok":      true,
+		"name":    name,
+		"sport":   act.Sport,
+		"summary": summaryToJS(stats.Compute(act.Records, stats.DefaultOptions())),
+	}
+}
+
 // maxTrackPoints caps how many points the browser preview receives: enough to
 // draw a faithful route and elevation profile, few enough to stay snappy and
 // keep the JS<->wasm crossing cheap.
 const maxTrackPoints = 2000
 
 // trackToJS marshals the downsampled preview polyline into a JS-friendly shape:
-// one flat [lat, lon, ele, dist, ...] array per part, plus a hasElevation flag.
+// one flat [lat, lon, ele, dist, hr, cadence, power, ...] array per part (7 values
+// per point; channels are NaN where absent), plus per-channel presence flags.
 func trackToJS(act model.Activity) map[string]any {
 	tr := preview.Polyline(act, maxTrackPoints)
 	jsParts := make([]any, len(tr.Parts))
 	for i, part := range tr.Parts {
-		flat := make([]any, 0, len(part)*4)
+		flat := make([]any, 0, len(part)*7)
 		for _, p := range part {
-			flat = append(flat, p.Lat, p.Lon, p.Ele, p.Dist)
+			flat = append(flat, p.Lat, p.Lon, p.Ele, p.Dist, p.HR, p.Cadence, p.Power)
 		}
 		jsParts[i] = flat
 	}
 	return map[string]any{
 		"parts":        jsParts,
 		"hasElevation": tr.HasElevation,
+		"hasHR":        tr.HasHR,
+		"hasCadence":   tr.HasCadence,
+		"hasPower":     tr.HasPower,
 	}
 }
 
