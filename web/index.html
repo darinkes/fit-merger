@@ -867,6 +867,19 @@
         if (btn.dataset.zoom === "fit") { osmFit(); osmRender(); return; }
         osmZoom(btn.dataset.zoom === "in" ? 1 : -1, osmState.W / 2, osmState.H / 2);
       });
+
+      // Self-heal if the map's width changes after a fit — the panel being
+      // revealed, a scrollbar appearing, or any layout/window resize — so the
+      // route never desyncs from the tiles.
+      if (window.ResizeObserver) {
+        let lastW = 0;
+        new ResizeObserver(() => {
+          const w = view.clientWidth;
+          if (!w || w === lastW) return;
+          lastW = w;
+          if (basemap === "osm" && osmState) osmResize();
+        }).observe(view);
+      }
     })();
 
     // Elevation profile (distance vs. altitude) as a filled area. Rendered
@@ -1016,8 +1029,11 @@
     $("profile").addEventListener("pointerleave", hideProfileHover);
 
     function renderResult(res) {
-      // Reveal first so the map view has a real width to fit OSM tiles into.
+      // Reveal #result AND #viz first: a display:none container reports width 0,
+      // and the OSM basemap fits its tiles to mapView.clientWidth — measuring it
+      // while hidden would stretch the route out of sync with the tiles.
       $("result").classList.remove("hidden");
+      $("viz").classList.remove("hidden");
       renderStats(res.summary);
       const track = res.track || { parts: [], hasElevation: false };
       const hasMap = renderMap(track);
