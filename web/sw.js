@@ -1,9 +1,14 @@
 // Service worker for the fitmerge PWA: makes the app installable and available
-// offline. It precaches the small app shell on install; the ~6 MB wasm engine is
-// NOT precached (that would defeat the lazy load) — it is cached on first use via
-// the stale-while-revalidate handler below, so offline merges work after one
-// online run. OpenStreetMap tiles are cross-origin and never cached.
-const CACHE = "fitmerge-v1";
+// offline, without ever serving a stale/mismatched engine.
+//
+// The cache name carries the build version (stamped in at deploy time), so every
+// release lands in a fresh namespace and the old one is deleted on activate —
+// that's the "clean on update" guarantee. index.html, the wasm engine and JS are
+// a version-coupled set, so they're served network-first (always fresh online,
+// cache only as an offline fallback); static art (icons, og image, manifest) is
+// served stale-while-revalidate for speed.
+const VERSION = "dev"; // replaced with the git version at build time
+const CACHE = "fitmerge-" + VERSION;
 const SHELL = [
   "./",
   "./index.html",
@@ -35,29 +40,29 @@ async function cachePut(req, res) {
   }
 }
 
+// networkFirst keeps the HTML+wasm+JS trio matched: try the network, fall back
+// to cache only when offline.
+function networkFirst(req) {
+  return fetch(req)
+    .then((res) => { cachePut(req, res.clone()); return res; })
+    .catch(() => caches.match(req).then((h) => h || caches.match("./index.html")));
+}
+
+// staleWhileRevalidate serves cached art instantly and refreshes it in the
+// background — safe because these assets don't affect correctness.
+function staleWhileRevalidate(req) {
+  return caches.match(req).then((hit) => {
+    const net = fetch(req).then((res) => { cachePut(req, res.clone()); return res; }).catch(() => hit);
+    return hit || net;
+  });
+}
+
 self.addEventListener("fetch", (e) => {
   const req = e.request;
   if (req.method !== "GET") return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return; // OSM tiles etc. go straight to network
 
-  // HTML navigations: network-first so a new deploy shows immediately; fall back
-  // to the cached shell when offline.
-  if (req.mode === "navigate") {
-    e.respondWith(
-      fetch(req)
-        .then((res) => { cachePut(req, res.clone()); return res; })
-        .catch(() => caches.match(req).then((h) => h || caches.match("./index.html")))
-    );
-    return;
-  }
-
-  // Everything else (wasm, JS, images): serve cached instantly, refresh in the
-  // background.
-  e.respondWith(
-    caches.match(req).then((hit) => {
-      const net = fetch(req).then((res) => { cachePut(req, res.clone()); return res; }).catch(() => hit);
-      return hit || net;
-    })
-  );
+  const coupled = req.mode === "navigate" || url.pathname.endsWith("/") || /\.(wasm|js|html)$/.test(url.pathname);
+  e.respondWith(coupled ? networkFirst(req) : staleWhileRevalidate(req));
 });

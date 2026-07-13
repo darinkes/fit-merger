@@ -18,7 +18,8 @@ RUN go mod download
 COPY . .
 RUN GOOS=js GOARCH=wasm go build -ldflags "-s -w -X main.version=${VERSION}" \
         -o web/fitmerge.wasm ./cmd/fitmerge-wasm \
- && cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" web/
+ && cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" web/ \
+ && sed -i "s/const VERSION = \"dev\";/const VERSION = \"${VERSION}\";/" web/sw.js
 
 # Serve the static UI (index.html + favicon + the built wasm) with nginx.
 # The page fetches fitmerge.wasm as an arrayBuffer, so no special MIME/config

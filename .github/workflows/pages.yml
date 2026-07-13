@@ -35,6 +35,9 @@ jobs:
           GOOS=js GOARCH=wasm go build \
             -ldflags "-s -w -X main.version=$VERSION" \
             -o web/fitmerge.wasm ./cmd/fitmerge-wasm
+          # Stamp the version into the service worker so each release lands in a
+          # fresh cache namespace (old caches are purged on activate).
+          sed -i "s/const VERSION = \"dev\";/const VERSION = \"$VERSION\";/" web/sw.js
       - name: Add Go's wasm JS loader
         run: cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" web/
       - uses: actions/upload-pages-artifact@v3
