@@ -1,6 +1,7 @@
 package preview_test
 
 import (
+	"math"
 	"os"
 	"testing"
 
@@ -76,16 +77,19 @@ func TestPolylineDownsampleKeepsEndpoints(t *testing.T) {
 		t.Errorf("downsampled to %d points, want <= %d", total, max+len(tr.Parts))
 	}
 
+	// Compare by position: Point now carries channel fields that may be NaN
+	// (NaN != NaN would make a whole-struct comparison always fail).
+	samePos := func(a, b preview.Point) bool { return a.Lat == b.Lat && a.Lon == b.Lon && a.Dist == b.Dist }
 	full := preview.Polyline(act, 0)
 	for i := range tr.Parts {
 		got, want := tr.Parts[i], full.Parts[i]
 		if len(got) < 2 {
 			continue
 		}
-		if got[0] != want[0] {
+		if !samePos(got[0], want[0]) {
 			t.Errorf("part %d: first point not preserved: got %v want %v", i, got[0], want[0])
 		}
-		if got[len(got)-1] != want[len(want)-1] {
+		if !samePos(got[len(got)-1], want[len(want)-1]) {
 			t.Errorf("part %d: last point not preserved: got %v want %v", i, got[len(got)-1], want[len(want)-1])
 		}
 	}
@@ -109,6 +113,32 @@ func TestPolylineSeedsLeadingAltitude(t *testing.T) {
 	}
 	if got := tr.Parts[0][0].Ele; got != ele {
 		t.Errorf("leading point elevation = %v, want %v (back-filled from first known sample)", got, ele)
+	}
+}
+
+func TestPolylineCarriesChannels(t *testing.T) {
+	lat, lon := 47.0, 8.0
+	hr, pw, cad := uint8(120), uint16(200), uint8(90)
+	act := model.Activity{
+		Records: []model.Record{
+			{Lat: &lat, Lon: &lon}, // channels unknown yet
+			{Lat: &lat, Lon: &lon, HR: &hr, Power: &pw, Cadence: &cad}, // first samples
+			{Lat: &lat, Lon: &lon}, // dropout -> carry forward
+		},
+	}
+	tr := preview.Polyline(act, 0)
+	if !tr.HasHR || !tr.HasPower || !tr.HasCadence {
+		t.Fatalf("flags hr:%v pow:%v cad:%v, want all true", tr.HasHR, tr.HasPower, tr.HasCadence)
+	}
+	p := tr.Parts[0]
+	if !math.IsNaN(p[0].HR) {
+		t.Errorf("leading HR = %v, want NaN before the first sample", p[0].HR)
+	}
+	if p[1].HR != 120 || p[1].Power != 200 || p[1].Cadence != 90 {
+		t.Errorf("sample point hr:%v pow:%v cad:%v", p[1].HR, p[1].Power, p[1].Cadence)
+	}
+	if p[2].HR != 120 { // carried across the dropout
+		t.Errorf("carried HR = %v, want 120", p[2].HR)
 	}
 }
 
