@@ -27,7 +27,7 @@ var update = flag.Bool("update", false, "regenerate golden files")
 func TestGoldenOutput(t *testing.T) {
 	res := mergeInputs(t)
 
-	for _, kind := range []format.Kind{format.GPX, format.FIT} {
+	for _, kind := range []format.Kind{format.GPX, format.FIT, format.TCX} {
 		t.Run(string(kind), func(t *testing.T) {
 			data, err := format.Encode(kind, res.Activity, res.Summary)
 			if err != nil {

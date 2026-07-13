@@ -53,8 +53,8 @@ type config struct {
 func runMerge(args []string) error {
 	fs := flag.NewFlagSet("fitmerge", flag.ContinueOnError)
 	var c config
-	fs.StringVar(&c.output, "o", "", "output file (.gpx or .fit); format inferred from extension")
-	fs.StringVar(&c.formatName, "format", "", "override output format: gpx|fit")
+	fs.StringVar(&c.output, "o", "", "output file (.gpx, .fit or .tcx); format inferred from extension")
+	fs.StringVar(&c.formatName, "format", "", "override output format: gpx|fit|tcx")
 	fs.BoolVar(&c.sort, "sort", true, "order inputs by their first timestamp")
 	fs.StringVar(&c.overlap, "overlap", "error", "when inputs overlap in time: error|keep|trim")
 	fs.Float64Var(&c.ascentThreshold, "ascent-threshold", 3.0, "min sustained elevation change counted as climb (m)")
@@ -68,7 +68,7 @@ func runMerge(args []string) error {
 	fs.Usage = func() {
 		fmt.Fprintf(fs.Output(), "Usage: fitmerge [flags] <input1> <input2> [input3...]\n"+
 			"       fitmerge dump [flags] <file>\n\n"+
-			"Merge GPX/FIT files into one, recomputing all summary figures.\n"+
+			"Merge GPX/FIT/TCX files into one, recomputing all summary figures.\n"+
 			"Use `fitmerge dump <file>` to inspect a single file.\n\nFlags:\n")
 		fs.PrintDefaults()
 	}
@@ -157,10 +157,10 @@ func buildVersion() string {
 func outputKind(c config) (format.Kind, error) {
 	if c.formatName != "" {
 		switch k := format.Kind(strings.ToLower(c.formatName)); k {
-		case format.GPX, format.FIT:
+		case format.GPX, format.FIT, format.TCX:
 			return k, nil
 		default:
-			return "", fmt.Errorf("invalid -format %q (want gpx|fit)", c.formatName)
+			return "", fmt.Errorf("invalid -format %q (want gpx|fit|tcx)", c.formatName)
 		}
 	}
 	return format.Detect(c.output)

@@ -4,9 +4,9 @@ Guidance for Claude Code when working in this repository.
 
 ## What this is
 
-`fitmerge` is a Go CLI that merges two or more GPX/FIT activity files into a
-single GPX or FIT file, **recomputing every summary figure** (distance, ascent,
-moving/elapsed time, speed, heart rate) from the merged point stream. The same
+`fitmerge` is a Go CLI that merges two or more GPX/FIT/TCX activity files into a
+single GPX, FIT or TCX file, **recomputing every summary figure** (distance,
+ascent, moving/elapsed time, speed, heart rate) from the merged point stream. The same
 engine is compiled to WebAssembly for an in-browser UI (`web/`, deployed to
 GitHub Pages).
 
@@ -53,7 +53,7 @@ Both formats decode into one canonical model, are merged there, and encode back
 out — so cross-format merging (e.g. FIT+GPX → FIT) falls out for free:
 
 ```
-FIT/GPX ──decode──▶ model.Activity ──merge + recompute──▶ Activity ──encode──▶ FIT/GPX
+FIT/GPX/TCX ──decode──▶ model.Activity ──merge + recompute──▶ Activity ──encode──▶ FIT/GPX/TCX
 ```
 
 | Package | Responsibility |
@@ -66,6 +66,7 @@ FIT/GPX ──decode──▶ model.Activity ──merge + recompute──▶ Ac
 | `internal/merge` | Ordering, overlap handling, distance re-basing across files |
 | `internal/gpx` | GPX 1.1 codec (`github.com/tkrajina/gpxgo`) |
 | `internal/fit` | FIT codec (`github.com/muktihari/fit`) |
+| `internal/tcx` | TCX codec (hand-rolled on `encoding/xml`, no dependency) |
 | `internal/format` | Extension-based codec dispatch; path- **and** byte-slice APIs |
 | `internal/preview` | Downsampled route/elevation polyline for the browser preview |
 | `web/` | Static single-page UI (`index.html`) served alongside the wasm build |

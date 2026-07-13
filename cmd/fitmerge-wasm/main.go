@@ -10,7 +10,7 @@
 //
 // where inputs is an array of { name: string, data: Uint8Array } and options is
 //
-//	{ format: "gpx"|"fit", sort: bool, overlap: "error"|"keep"|"trim",
+//	{ format: "gpx"|"fit"|"tcx", sort: bool, overlap: "error"|"keep"|"trim",
 //	  ascentThreshold: number, movingThreshold: number, use3d: bool, sport: string }
 //
 // and result is
@@ -75,8 +75,8 @@ func mergeFn(_ js.Value, args []js.Value) (result any) {
 	}
 
 	outKind := format.Kind(optString(opts, "format", "gpx"))
-	if outKind != format.GPX && outKind != format.FIT {
-		return fail(fmt.Sprintf("invalid output format %q (want gpx or fit)", outKind))
+	if outKind != format.GPX && outKind != format.FIT && outKind != format.TCX {
+		return fail(fmt.Sprintf("invalid output format %q (want gpx, fit or tcx)", outKind))
 	}
 	overlap := merge.OverlapStrategy(optString(opts, "overlap", string(merge.OverlapError)))
 	switch overlap {

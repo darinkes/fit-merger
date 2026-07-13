@@ -5,23 +5,23 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#7c3aed">
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
-  <title>fitmerge — merge GPX/FIT activities in your browser</title>
-  <meta name="description" content="Merge GPX and FIT activity files into one — free, private, and entirely in your browser. Distance, ascent, moving time and speed are recomputed from the combined track.">
+  <title>fitmerge — merge GPX, FIT &amp; TCX activities in your browser</title>
+  <meta name="description" content="Merge GPX, FIT and TCX activity files into one — free, private, and entirely in your browser. Distance, ascent, moving time and speed are recomputed from the combined track.">
   <link rel="canonical" href="https://darinkes.github.io/fit-merger/">
 
   <!-- Open Graph / Twitter link previews (Reddit, Slack, Discord, forums, …) -->
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="fitmerge">
-  <meta property="og:title" content="fitmerge — merge GPX &amp; FIT activities in your browser">
-  <meta property="og:description" content="Free, private, in-browser merger for GPX and FIT files. Every total is recomputed from the combined track — your files never leave the page.">
+  <meta property="og:title" content="fitmerge — merge GPX, FIT &amp; TCX activities in your browser">
+  <meta property="og:description" content="Free, private, in-browser merger for GPX, FIT and TCX files. Every total is recomputed from the combined track — your files never leave the page.">
   <meta property="og:url" content="https://darinkes.github.io/fit-merger/">
   <meta property="og:image" content="https://darinkes.github.io/fit-merger/og-image.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
-  <meta property="og:image:alt" content="fitmerge — merge GPX & FIT activities in your browser">
+  <meta property="og:image:alt" content="fitmerge — merge GPX, FIT & TCX activities in your browser">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="fitmerge — merge GPX &amp; FIT activities in your browser">
-  <meta name="twitter:description" content="Free, private, in-browser merger for GPX and FIT files. Every total is recomputed from the combined track — your files never leave the page.">
+  <meta name="twitter:title" content="fitmerge — merge GPX, FIT &amp; TCX activities in your browser">
+  <meta name="twitter:description" content="Free, private, in-browser merger for GPX, FIT and TCX files. Every total is recomputed from the combined track — your files never leave the page.">
   <meta name="twitter:image" content="https://darinkes.github.io/fit-merger/og-image.png">
 
   <!-- Structured data: helps Google understand the app and show rich results. -->
@@ -31,7 +31,7 @@
     "@type": "WebApplication",
     "name": "fitmerge",
     "url": "https://darinkes.github.io/fit-merger/",
-    "description": "Merge two or more GPX or FIT activity files into a single GPX or FIT file, entirely in your browser. Every summary figure is recomputed from the combined track.",
+    "description": "Merge two or more GPX, FIT or TCX activity files into a single GPX, FIT or TCX file, entirely in your browser. Every summary figure is recomputed from the combined track.",
     "applicationCategory": "UtilitiesApplication",
     "operatingSystem": "Any (web browser with WebAssembly)",
     "browserRequirements": "Requires WebAssembly",
@@ -48,10 +48,10 @@
     "mainEntity": [
       { "@type": "Question", "name": "Are my files uploaded anywhere?",
         "acceptedAnswer": { "@type": "Answer", "text": "No. fitmerge runs entirely in your browser using WebAssembly, so your GPX and FIT files never leave your device." } },
-      { "@type": "Question", "name": "How do I merge GPX or FIT files?",
-        "acceptedAnswer": { "@type": "Answer", "text": "Drop two or more .gpx or .fit files onto the page, choose GPX or FIT output, then click Merge activities to download the combined file." } },
-      { "@type": "Question", "name": "Can I mix GPX and FIT files?",
-        "acceptedAnswer": { "@type": "Answer", "text": "Yes. You can combine any mix of GPX and FIT inputs and export the result as either GPX or FIT." } },
+      { "@type": "Question", "name": "How do I merge GPX, FIT or TCX files?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Drop two or more .gpx, .fit or .tcx files onto the page, choose GPX, FIT or TCX output, then click Merge activities to download the combined file." } },
+      { "@type": "Question", "name": "Can I mix GPX, FIT and TCX files?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Yes. You can combine any mix of GPX, FIT and TCX inputs and export the result as GPX, FIT or TCX." } },
       { "@type": "Question", "name": "Does it recompute distance, elevation and time?",
         "acceptedAnswer": { "@type": "Answer", "text": "Yes. Distance, ascent and descent, moving and elapsed time, and average and maximum speed are all recomputed from the merged points rather than copied from the source files." } },
       { "@type": "Question", "name": "Will the merged file work in Strava and Garmin Connect?",
@@ -372,7 +372,7 @@
         </span>
         <div>
           <h1><span class="mono">fitmerge</span></h1>
-          <small>GPX &amp; FIT activity merger</small>
+          <small>GPX, FIT &amp; TCX activity merger</small>
         </div>
       </div>
       <button id="theme" class="theme-toggle" type="button" aria-label="Toggle light/dark theme" title="Toggle theme">
@@ -397,14 +397,14 @@
     <div class="card">
       <div class="field">
         <label for="files">Activity files
-          <span class="hint">— pick 2+ <code>.gpx</code>/<code>.fit</code> files (any mix)</span>
+          <span class="hint">— pick 2+ <code>.gpx</code>/<code>.fit</code>/<code>.tcx</code> files (any mix)</span>
         </label>
         <label class="dropzone" id="drop" for="files">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M12 16V4M8 8l4-4 4 4"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>
           </svg>
           <span><strong>Drop files here</strong> or click to browse</span>
-          <input id="files" type="file" accept=".gpx,.fit" multiple>
+          <input id="files" type="file" accept=".gpx,.fit,.tcx" multiple>
         </label>
         <div id="filelist"></div>
       </div>
@@ -414,6 +414,7 @@
         <div class="segmented" id="format" role="group" aria-label="Output format">
           <button type="button" data-fmt="gpx" aria-pressed="true">GPX</button>
           <button type="button" data-fmt="fit" aria-pressed="false">FIT</button>
+          <button type="button" data-fmt="tcx" aria-pressed="false">TCX</button>
         </div>
       </div>
 
@@ -506,12 +507,12 @@
         <p>No. fitmerge runs entirely in your browser using WebAssembly, so your GPX and FIT files never leave your device.</p>
       </details>
       <details>
-        <summary>How do I merge GPX or FIT files?</summary>
-        <p>Drop two or more <code>.gpx</code> or <code>.fit</code> files onto the page, choose GPX or FIT output, then click <strong>Merge activities</strong> to download the combined file.</p>
+        <summary>How do I merge GPX, FIT or TCX files?</summary>
+        <p>Drop two or more <code>.gpx</code>, <code>.fit</code> or <code>.tcx</code> files onto the page, choose GPX, FIT or TCX output, then click <strong>Merge activities</strong> to download the combined file.</p>
       </details>
       <details>
-        <summary>Can I mix GPX and FIT files?</summary>
-        <p>Yes. You can combine any mix of GPX and FIT inputs and export the result as either GPX or FIT.</p>
+        <summary>Can I mix GPX, FIT and TCX files?</summary>
+        <p>Yes. You can combine any mix of GPX, FIT and TCX inputs and export the result as GPX, FIT or TCX.</p>
       </details>
       <details>
         <summary>Does it recompute distance, elevation and time?</summary>
@@ -1157,7 +1158,9 @@
       $("total").innerHTML = rowCells("TOTAL", res.summary);
 
       if (downloadURL) URL.revokeObjectURL(downloadURL);
-      const mime = res.filename.endsWith(".fit") ? "application/octet-stream" : "application/gpx+xml";
+      const mime = res.filename.endsWith(".fit") ? "application/octet-stream"
+        : res.filename.endsWith(".tcx") ? "application/vnd.garmin.tcx+xml"
+        : "application/gpx+xml";
       downloadURL = URL.createObjectURL(new Blob([res.data], { type: mime }));
       const dl = $("download");
       dl.href = downloadURL;

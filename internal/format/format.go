@@ -13,6 +13,7 @@ import (
 	"github.com/darinkes/fit-merger/internal/fit"
 	"github.com/darinkes/fit-merger/internal/gpx"
 	"github.com/darinkes/fit-merger/internal/model"
+	"github.com/darinkes/fit-merger/internal/tcx"
 )
 
 // Kind identifies a supported activity file format.
@@ -21,6 +22,7 @@ type Kind string
 const (
 	GPX Kind = "gpx"
 	FIT Kind = "fit"
+	TCX Kind = "tcx"
 )
 
 // Detect infers the format from a path or file name's extension.
@@ -30,8 +32,10 @@ func Detect(path string) (Kind, error) {
 		return GPX, nil
 	case ".fit":
 		return FIT, nil
+	case ".tcx":
+		return TCX, nil
 	default:
-		return "", fmt.Errorf("cannot determine format from extension %q (want .gpx or .fit)", ext)
+		return "", fmt.Errorf("cannot determine format from extension %q (want .gpx, .fit or .tcx)", ext)
 	}
 }
 
@@ -46,6 +50,8 @@ func Read(path string) (model.Activity, error) {
 		return gpx.ReadFile(path)
 	case FIT:
 		return fit.ReadFile(path)
+	case TCX:
+		return tcx.ReadFile(path)
 	default:
 		return model.Activity{}, fmt.Errorf("unsupported format %q", kind)
 	}
@@ -59,6 +65,8 @@ func Write(path string, kind Kind, act model.Activity, summary model.Summary) er
 		return gpx.WriteFile(path, act)
 	case FIT:
 		return fit.WriteFile(path, act, summary)
+	case TCX:
+		return tcx.WriteFile(path, act, summary)
 	default:
 		return fmt.Errorf("unsupported output format %q", kind)
 	}
@@ -78,6 +86,9 @@ func Inspect(path string) (Kind, [][2]string, error) {
 	case FIT:
 		kv, err := fit.Inspect(path)
 		return kind, kv, err
+	case TCX:
+		kv, err := tcx.Inspect(path)
+		return kind, kv, err
 	default:
 		return "", nil, fmt.Errorf("unsupported format %q", kind)
 	}
@@ -91,6 +102,8 @@ func Decode(data []byte, kind Kind) (model.Activity, error) {
 		return gpx.Read(bytes.NewReader(data))
 	case FIT:
 		return fit.Read(bytes.NewReader(data))
+	case TCX:
+		return tcx.Read(bytes.NewReader(data))
 	default:
 		return model.Activity{}, fmt.Errorf("unsupported format %q", kind)
 	}
@@ -106,6 +119,10 @@ func Encode(kind Kind, act model.Activity, summary model.Summary) ([]byte, error
 		}
 	case FIT:
 		if err := fit.Write(&buf, act, summary); err != nil {
+			return nil, err
+		}
+	case TCX:
+		if err := tcx.Write(&buf, act, summary); err != nil {
 			return nil, err
 		}
 	default:

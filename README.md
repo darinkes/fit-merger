@@ -1,9 +1,9 @@
 # fitmerge
 
-A Go CLI that merges two or more **GPX/FIT** activity files into a single GPX or
-FIT file, **recomputing every summary figure** — distance, ascent/descent,
-moving time, elapsed time, average/max speed, heart rate — so the merged file's
-totals faithfully describe the combined track.
+A Go CLI that merges two or more **GPX/FIT/TCX** activity files into a single
+GPX, FIT or TCX file, **recomputing every summary figure** — distance,
+ascent/descent, moving time, elapsed time, average/max speed, heart rate — so the
+merged file's totals faithfully describe the combined track.
 
 Typical use: stitching a multi-part or multi-day activity (a ride split across
 several files, a tour recorded day by day) back into one file.
@@ -17,11 +17,13 @@ several files, a tour recorded day by day) back into one file.
 | ------ | :--: | :---: |
 | GPX    |  ✅  |  ✅   |
 | FIT    |  ✅  |  ✅   |
+| TCX    |  ✅  |  ✅   |
 
-All combinations work: GPX and FIT inputs can be freely mixed and written to
-either format. FIT output carries correct stored `session`/`lap` summaries, so
-the merged file shows the right distance, climb and moving time when imported
-into Garmin Connect, Strava, etc.
+All combinations work: GPX, FIT and TCX inputs can be freely mixed and written to
+any of the three formats. FIT output carries correct stored `session`/`lap`
+summaries, and TCX output carries per-lap totals, so the merged file shows the
+right distance, climb and moving time when imported into Garmin Connect, Strava,
+etc.
 
 ## Install
 

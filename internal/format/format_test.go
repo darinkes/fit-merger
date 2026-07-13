@@ -44,7 +44,7 @@ func TestRoundTripEachFormat(t *testing.T) {
 	res := mergeInputs(t)
 	want := res.Summary
 
-	for _, kind := range []format.Kind{format.GPX, format.FIT} {
+	for _, kind := range []format.Kind{format.GPX, format.FIT, format.TCX} {
 		t.Run(string(kind), func(t *testing.T) {
 			out := filepath.Join(t.TempDir(), "merged."+string(kind))
 			if err := format.Write(out, kind, res.Activity, res.Summary); err != nil {
@@ -84,7 +84,7 @@ func TestDecodeEncodeBytes(t *testing.T) {
 	res := mergeInputs(t)
 	want := res.Summary
 
-	for _, kind := range []format.Kind{format.GPX, format.FIT} {
+	for _, kind := range []format.Kind{format.GPX, format.FIT, format.TCX} {
 		t.Run(string(kind), func(t *testing.T) {
 			data, err := format.Encode(kind, res.Activity, res.Summary)
 			if err != nil {

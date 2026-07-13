@@ -26,7 +26,7 @@ func runDump(args []string) error {
 	fs.BoolVar(&asJSON, "json", false, "output everything as JSON")
 	fs.BoolVar(&allRecords, "records", false, "list every record (default: a small sample)")
 	fs.Usage = func() {
-		fmt.Fprintf(fs.Output(), "Usage: fitmerge dump [flags] <file.gpx|file.fit>\n\n"+
+		fmt.Fprintf(fs.Output(), "Usage: fitmerge dump [flags] <file.gpx|file.fit|file.tcx>\n\n"+
 			"Show all information in a single activity file.\n\nFlags:\n")
 		fs.PrintDefaults()
 	}
