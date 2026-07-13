@@ -160,6 +160,8 @@
     select, input[type=number], input[type=text] {
       width: 100%; padding: .58rem .7rem; border: 1px solid var(--border-strong); border-radius: 10px;
       background: var(--card-solid); color: var(--fg); font: inherit; transition: border-color .15s, box-shadow .15s;
+      /* >=16px stops iOS Safari from zooming the page when a field is focused. */
+      font-size: 16px;
     }
     select:focus, input[type=number]:focus, input[type=text]:focus {
       outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--ring);
