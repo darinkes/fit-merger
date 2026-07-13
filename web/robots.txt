@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://darinkes.github.io/fit-merger/sitemap.xml
+Sitemap: https://darinkes.github.io/fitmerge/sitemap.xml

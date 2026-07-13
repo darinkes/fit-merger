@@ -10,10 +10,10 @@ import (
 	"runtime/debug"
 	"strings"
 
-	"github.com/darinkes/fit-merger/internal/format"
-	"github.com/darinkes/fit-merger/internal/merge"
-	"github.com/darinkes/fit-merger/internal/model"
-	"github.com/darinkes/fit-merger/internal/stats"
+	"github.com/darinkes/fitmerge/internal/format"
+	"github.com/darinkes/fitmerge/internal/merge"
+	"github.com/darinkes/fitmerge/internal/model"
+	"github.com/darinkes/fitmerge/internal/stats"
 )
 
 // version is overridable at build time with

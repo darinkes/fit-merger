@@ -10,8 +10,8 @@ package stats
 import (
 	"time"
 
-	"github.com/darinkes/fit-merger/internal/geo"
-	"github.com/darinkes/fit-merger/internal/model"
+	"github.com/darinkes/fitmerge/internal/geo"
+	"github.com/darinkes/fitmerge/internal/model"
 )
 
 // Options tunes the two figures that are genuinely a matter of definition

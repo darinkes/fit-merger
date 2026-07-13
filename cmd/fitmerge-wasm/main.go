@@ -28,12 +28,12 @@ import (
 	"syscall/js"
 	"time"
 
-	"github.com/darinkes/fit-merger/internal/editing"
-	"github.com/darinkes/fit-merger/internal/format"
-	"github.com/darinkes/fit-merger/internal/merge"
-	"github.com/darinkes/fit-merger/internal/model"
-	"github.com/darinkes/fit-merger/internal/preview"
-	"github.com/darinkes/fit-merger/internal/stats"
+	"github.com/darinkes/fitmerge/internal/editing"
+	"github.com/darinkes/fitmerge/internal/format"
+	"github.com/darinkes/fitmerge/internal/merge"
+	"github.com/darinkes/fitmerge/internal/model"
+	"github.com/darinkes/fitmerge/internal/preview"
+	"github.com/darinkes/fitmerge/internal/stats"
 )
 
 // version is stamped at build time with -ldflags "-X main.version=...".

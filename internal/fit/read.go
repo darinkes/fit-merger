@@ -15,7 +15,7 @@ import (
 	"github.com/muktihari/fit/profile/mesgdef"
 	"github.com/muktihari/fit/profile/typedef"
 
-	"github.com/darinkes/fit-merger/internal/model"
+	"github.com/darinkes/fitmerge/internal/model"
 )
 
 // ReadFile decodes a FIT activity file at path, recording the path as the

@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/darinkes/fit-merger/internal/model"
-	"github.com/darinkes/fit-merger/internal/tcx"
+	"github.com/darinkes/fitmerge/internal/model"
+	"github.com/darinkes/fitmerge/internal/tcx"
 )
 
 const sample = `<?xml version="1.0" encoding="UTF-8"?>

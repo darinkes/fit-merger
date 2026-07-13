@@ -5,10 +5,10 @@ import (
 	"os"
 	"testing"
 
-	"github.com/darinkes/fit-merger/internal/format"
-	"github.com/darinkes/fit-merger/internal/merge"
-	"github.com/darinkes/fit-merger/internal/model"
-	"github.com/darinkes/fit-merger/internal/preview"
+	"github.com/darinkes/fitmerge/internal/format"
+	"github.com/darinkes/fitmerge/internal/merge"
+	"github.com/darinkes/fitmerge/internal/model"
+	"github.com/darinkes/fitmerge/internal/preview"
 )
 
 // mergedTestData decodes the two sample GPX files and merges them the same way

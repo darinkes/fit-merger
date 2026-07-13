@@ -1,7 +1,7 @@
 # Deploying the web UI
 
 The browser version (WebAssembly + `web/index.html`) is **live** at
-<https://darinkes.github.io/fit-merger/>.
+<https://darinkes.github.io/fitmerge/>.
 
 Deployment is handled by `.github/workflows/pages.yml`: on every push to `main`
 it builds `web/fitmerge.wasm`, copies Go's `wasm_exec.js`, and publishes the

@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/darinkes/fit-merger/internal/format"
+	"github.com/darinkes/fitmerge/internal/format"
 )
 
 // update regenerates the golden files instead of comparing against them:

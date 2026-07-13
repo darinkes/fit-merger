@@ -10,10 +10,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/darinkes/fit-merger/internal/fit"
-	"github.com/darinkes/fit-merger/internal/gpx"
-	"github.com/darinkes/fit-merger/internal/model"
-	"github.com/darinkes/fit-merger/internal/tcx"
+	"github.com/darinkes/fitmerge/internal/fit"
+	"github.com/darinkes/fitmerge/internal/gpx"
+	"github.com/darinkes/fitmerge/internal/model"
+	"github.com/darinkes/fitmerge/internal/tcx"
 )
 
 // Kind identifies a supported activity file format.

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/darinkes/fit-merger/internal/model"
+	"github.com/darinkes/fitmerge/internal/model"
 )
 
 // TCX namespaces: the default TrainingCenterDatabase schema plus the Garmin
@@ -22,7 +22,7 @@ const (
 )
 
 // Creator identifies this tool in the TCX <Author> block.
-const Creator = "fit-merger (https://github.com/darinkes/fit-merger)"
+const Creator = "fitmerge (https://github.com/darinkes/fitmerge)"
 
 // WriteFile encodes an Activity as TCX to path.
 func WriteFile(path string, act model.Activity, summary model.Summary) error {

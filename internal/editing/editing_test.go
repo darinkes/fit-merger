@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/darinkes/fit-merger/internal/editing"
-	"github.com/darinkes/fit-merger/internal/model"
+	"github.com/darinkes/fitmerge/internal/editing"
+	"github.com/darinkes/fitmerge/internal/model"
 )
 
 // line builds n records marching due east from (lat0, lon0) in ~fixed steps, so

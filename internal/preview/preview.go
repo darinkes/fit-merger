@@ -7,7 +7,7 @@ package preview
 import (
 	"math"
 
-	"github.com/darinkes/fit-merger/internal/model"
+	"github.com/darinkes/fitmerge/internal/model"
 )
 
 // Point is one sample of the preview polyline. HR, Cadence and Power are NaN

@@ -13,7 +13,7 @@ import (
 
 	xgpx "github.com/tkrajina/gpxgo/gpx"
 
-	"github.com/darinkes/fit-merger/internal/model"
+	"github.com/darinkes/fitmerge/internal/model"
 )
 
 // ReadFile parses a GPX file at path into an Activity, recording the path as

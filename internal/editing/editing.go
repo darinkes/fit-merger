@@ -5,9 +5,9 @@
 package editing
 
 import (
-	"github.com/darinkes/fit-merger/internal/geo"
-	"github.com/darinkes/fit-merger/internal/model"
-	"github.com/darinkes/fit-merger/internal/stats"
+	"github.com/darinkes/fitmerge/internal/geo"
+	"github.com/darinkes/fitmerge/internal/model"
+	"github.com/darinkes/fitmerge/internal/stats"
 )
 
 // Trim removes the first startM and last endM metres of the activity, measured

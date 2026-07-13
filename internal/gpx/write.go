@@ -8,14 +8,14 @@ import (
 
 	xgpx "github.com/tkrajina/gpxgo/gpx"
 
-	"github.com/darinkes/fit-merger/internal/model"
+	"github.com/darinkes/fitmerge/internal/model"
 )
 
 // tpxNS is the Garmin TrackPointExtension namespace used for hr/cad/atemp.
 const tpxNS = "http://www.garmin.com/xmlschemas/TrackPointExtension/v1"
 
 // Creator is written to the GPX <gpx creator="..."> attribute.
-const Creator = "fit-merger (https://github.com/darinkes/fit-merger)"
+const Creator = "fitmerge (https://github.com/darinkes/fitmerge)"
 
 // WriteFile encodes an Activity as GPX 1.1 to path.
 func WriteFile(path string, act model.Activity) error {

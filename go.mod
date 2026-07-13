@@ -1,4 +1,4 @@
-module github.com/darinkes/fit-merger
+module github.com/darinkes/fitmerge
 
 go 1.26.5
 

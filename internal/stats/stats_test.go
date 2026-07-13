@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/darinkes/fit-merger/internal/model"
+	"github.com/darinkes/fitmerge/internal/model"
 )
 
 func f(v float64) *float64 { return &v }

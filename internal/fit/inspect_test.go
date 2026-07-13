@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/darinkes/fit-merger/internal/model"
-	"github.com/darinkes/fit-merger/internal/stats"
+	"github.com/darinkes/fitmerge/internal/model"
+	"github.com/darinkes/fitmerge/internal/stats"
 )
 
 func TestPreservesDevice(t *testing.T) {

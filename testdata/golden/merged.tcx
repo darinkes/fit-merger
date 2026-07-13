@@ -159,7 +159,7 @@
     </Activity>
   </Activities>
   <Author xsi:type="Application_t">
-    <Name>fit-merger (https://github.com/darinkes/fit-merger)</Name>
+    <Name>fitmerge (https://github.com/darinkes/fitmerge)</Name>
     <Build>
       <Version>
         <VersionMajor>0</VersionMajor>

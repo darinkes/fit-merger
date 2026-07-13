@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/darinkes/fit-merger/internal/model"
+	"github.com/darinkes/fitmerge/internal/model"
 )
 
 // ReadFile parses a TCX file at path into an Activity, recording the path as the

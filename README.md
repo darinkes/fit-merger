@@ -10,7 +10,7 @@ several files, a tour recorded day by day) back into one file. Give it a single
 input to simply **convert** between formats (e.g. FIT → GPX); the summaries are
 recomputed either way. The browser UI exposes this as a Merge / Convert switch.
 
-**🌐 Try it in your browser (no install): <https://darinkes.github.io/fit-merger/>**
+**🌐 Try it in your browser (no install): <https://darinkes.github.io/fitmerge/>**
 — the same engine compiled to WebAssembly; your files never leave the page.
 
 ## Status
@@ -34,7 +34,7 @@ make build           # -> ./fitmerge, version stamped from git
 # or
 go build -o fitmerge ./cmd/fitmerge
 # or
-go install github.com/darinkes/fit-merger/cmd/fitmerge@latest
+go install github.com/darinkes/fitmerge/cmd/fitmerge@latest
 ```
 
 `make dist` cross-compiles release binaries for linux/macOS/windows into `dist/`.

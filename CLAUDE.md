@@ -10,7 +10,7 @@ ascent, moving/elapsed time, speed, heart rate) from the merged point stream. Th
 engine is compiled to WebAssembly for an in-browser UI (`web/`, deployed to
 GitHub Pages).
 
-Module: `github.com/darinkes/fit-merger`. Requires Go 1.26+.
+Module: `github.com/darinkes/fitmerge`. Requires Go 1.26+.
 
 ## Commands
 

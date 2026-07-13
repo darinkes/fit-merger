@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/darinkes/fit-merger/internal/format"
-	"github.com/darinkes/fit-merger/internal/model"
-	"github.com/darinkes/fit-merger/internal/stats"
+	"github.com/darinkes/fitmerge/internal/format"
+	"github.com/darinkes/fitmerge/internal/model"
+	"github.com/darinkes/fitmerge/internal/stats"
 )
 
 // runDump implements `fitmerge dump <file>`: a comprehensive read-only view of a
