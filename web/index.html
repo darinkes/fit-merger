@@ -5,23 +5,23 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#7c3aed">
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
-  <title>fitmerge — merge GPX, FIT &amp; TCX activities in your browser</title>
-  <meta name="description" content="Merge GPX, FIT and TCX activity files into one — free, private, and entirely in your browser. Distance, ascent, moving time and speed are recomputed from the combined track.">
+  <title>fitmerge — merge &amp; convert GPX, FIT &amp; TCX activities in your browser</title>
+  <meta name="description" content="Merge GPX, FIT and TCX activity files into one, or convert between them (FIT to GPX, GPX to FIT, TCX…) — free, private, and entirely in your browser. Every total is recomputed from the track.">
   <link rel="canonical" href="https://darinkes.github.io/fit-merger/">
 
   <!-- Open Graph / Twitter link previews (Reddit, Slack, Discord, forums, …) -->
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="fitmerge">
-  <meta property="og:title" content="fitmerge — merge GPX, FIT &amp; TCX activities in your browser">
-  <meta property="og:description" content="Free, private, in-browser merger for GPX, FIT and TCX files. Every total is recomputed from the combined track — your files never leave the page.">
+  <meta property="og:title" content="fitmerge — merge &amp; convert GPX, FIT &amp; TCX activities in your browser">
+  <meta property="og:description" content="Free, private, in-browser tool to merge GPX, FIT and TCX files — or convert between them. Every total is recomputed from the track, and your files never leave the page.">
   <meta property="og:url" content="https://darinkes.github.io/fit-merger/">
   <meta property="og:image" content="https://darinkes.github.io/fit-merger/og-image.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
-  <meta property="og:image:alt" content="fitmerge — merge GPX, FIT & TCX activities in your browser">
+  <meta property="og:image:alt" content="fitmerge — merge & convert GPX, FIT & TCX activities in your browser">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="fitmerge — merge GPX, FIT &amp; TCX activities in your browser">
-  <meta name="twitter:description" content="Free, private, in-browser merger for GPX, FIT and TCX files. Every total is recomputed from the combined track — your files never leave the page.">
+  <meta name="twitter:title" content="fitmerge — merge &amp; convert GPX, FIT &amp; TCX activities in your browser">
+  <meta name="twitter:description" content="Free, private, in-browser tool to merge GPX, FIT and TCX files — or convert between them. Every total is recomputed from the track, and your files never leave the page.">
   <meta name="twitter:image" content="https://darinkes.github.io/fit-merger/og-image.png">
 
   <!-- Structured data: helps Google understand the app and show rich results. -->
@@ -31,7 +31,7 @@
     "@type": "WebApplication",
     "name": "fitmerge",
     "url": "https://darinkes.github.io/fit-merger/",
-    "description": "Merge two or more GPX, FIT or TCX activity files into a single GPX, FIT or TCX file, entirely in your browser. Every summary figure is recomputed from the combined track.",
+    "description": "Merge two or more GPX, FIT or TCX activity files into one — or convert a single file between those formats — entirely in your browser. Every summary figure is recomputed from the track.",
     "applicationCategory": "UtilitiesApplication",
     "operatingSystem": "Any (web browser with WebAssembly)",
     "browserRequirements": "Requires WebAssembly",
@@ -52,6 +52,8 @@
         "acceptedAnswer": { "@type": "Answer", "text": "Drop two or more .gpx, .fit or .tcx files onto the page, choose GPX, FIT or TCX output, then click Merge activities to download the combined file." } },
       { "@type": "Question", "name": "Can I mix GPX, FIT and TCX files?",
         "acceptedAnswer": { "@type": "Answer", "text": "Yes. You can combine any mix of GPX, FIT and TCX inputs and export the result as GPX, FIT or TCX." } },
+      { "@type": "Question", "name": "Can I convert one file to another format (FIT to GPX, GPX to FIT)?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Yes. Switch to Convert mode, drop a single GPX, FIT or TCX file, pick the output format, and download the converted file — entirely in your browser." } },
       { "@type": "Question", "name": "Does it recompute distance, elevation and time?",
         "acceptedAnswer": { "@type": "Answer", "text": "Yes. Distance, ascent and descent, moving and elapsed time, and average and maximum speed are all recomputed from the merged points rather than copied from the source files." } },
       { "@type": "Question", "name": "Will the merged file work in Strava and Garmin Connect?",
@@ -385,8 +387,8 @@
       </button>
     </header>
 
-    <p class="lede">Merge two or more activities into one — distance, ascent, moving time and
-      speed are recomputed from the combined track.</p>
+    <p class="lede">Merge two or more activities into one, or convert a single file between GPX, FIT
+      and TCX — distance, ascent, moving time and speed are recomputed from the track.</p>
     <span class="privacy">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>
@@ -396,14 +398,21 @@
 
     <div class="card">
       <div class="field">
-        <label for="files">Activity files
-          <span class="hint">— pick 2+ <code>.gpx</code>/<code>.fit</code>/<code>.tcx</code> files (any mix)</span>
+        <div class="segmented" id="mode" role="group" aria-label="Mode">
+          <button type="button" data-mode="merge" aria-pressed="true">Merge</button>
+          <button type="button" data-mode="convert" aria-pressed="false">Convert</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="files"><span id="filesLabel">Activity files</span>
+          <span class="hint" id="filesHint">— pick 2+ <code>.gpx</code>/<code>.fit</code>/<code>.tcx</code> files (any mix)</span>
         </label>
         <label class="dropzone" id="drop" for="files">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M12 16V4M8 8l4-4 4 4"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>
           </svg>
-          <span><strong>Drop files here</strong> or click to browse</span>
+          <span id="dropText"><strong>Drop files here</strong> or click to browse</span>
           <input id="files" type="file" accept=".gpx,.fit,.tcx" multiple>
         </label>
         <div id="filelist"></div>
@@ -419,7 +428,7 @@
       </div>
 
       <div class="field grid">
-        <div>
+        <div id="overlapField">
           <label for="overlap">Time overlap</label>
           <select id="overlap">
             <option value="error" selected>Error (safest)</option>
@@ -441,7 +450,7 @@
         </div>
       </div>
 
-      <div class="field row"><input id="sort" type="checkbox" checked><label for="sort">Order inputs by start time</label></div>
+      <div class="field row" id="sortField"><input id="sort" type="checkbox" checked><label for="sort">Order inputs by start time</label></div>
       <div class="field row"><input id="use3d" type="checkbox"><label for="use3d">Include elevation in distance (3D)</label></div>
 
       <button id="merge" class="primary" disabled>Loading…</button>
@@ -453,7 +462,7 @@
 
       <div class="viz hidden" id="viz">
         <figure class="viz-panel" id="mapPanel">
-          <figcaption>Merged route
+          <figcaption>Route
             <span class="segmented sm" id="basemap" role="group" aria-label="Basemap">
               <button type="button" data-base="plain" aria-pressed="true">Plain</button>
               <button type="button" data-base="osm" aria-pressed="false">OpenStreetMap</button>
@@ -480,7 +489,7 @@
         </figure>
       </div>
 
-      <label>Merged summary</label>
+      <label>Summary</label>
       <div class="table-wrap">
         <table id="summary">
           <thead>
@@ -513,6 +522,10 @@
       <details>
         <summary>Can I mix GPX, FIT and TCX files?</summary>
         <p>Yes. You can combine any mix of GPX, FIT and TCX inputs and export the result as GPX, FIT or TCX.</p>
+      </details>
+      <details>
+        <summary>Can I convert one file to another format (FIT to GPX, GPX to FIT, …)?</summary>
+        <p>Yes. Switch to <strong>Convert</strong> mode, drop a single <code>.gpx</code>, <code>.fit</code> or <code>.tcx</code> file, pick the output format, and download the converted file — entirely in your browser.</p>
       </details>
       <details>
         <summary>Does it recompute distance, elevation and time?</summary>
@@ -557,6 +570,7 @@
         outputFormat = b.dataset.fmt;
         $("format").querySelectorAll("button").forEach((x) =>
           x.setAttribute("aria-pressed", x === b));
+        updateActionLabel();
       });
     });
 
@@ -609,6 +623,49 @@
       statusEl.textContent = msg || "";
       statusEl.className = kind || "";
     }
+
+    // --- Merge / Convert mode -----------------------------------------
+    // Convert is the single-file case of the same engine (decode -> recompute ->
+    // encode), so it reuses everything except: one input instead of many, and the
+    // merge-only options (input order, time-overlap) are hidden.
+    let mode = "merge";
+    try { const m = localStorage.getItem("fitmerge-mode"); if (m === "merge" || m === "convert") mode = m; } catch (e) {}
+
+    function updateActionLabel() {
+      if (mergeBtn.disabled && mergeBtn.textContent === "Loading…") return; // wasm not ready yet
+      mergeBtn.textContent = mode === "convert" ? "Convert to " + outputFormat.toUpperCase() : "Merge activities";
+    }
+
+    function syncMode() {
+      const convert = mode === "convert";
+      $("mode").querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.mode === mode));
+      filesInput.multiple = !convert;
+      $("filesLabel").textContent = convert ? "Activity file" : "Activity files";
+      $("filesHint").innerHTML = convert
+        ? "— pick one <code>.gpx</code>/<code>.fit</code>/<code>.tcx</code> file to reformat"
+        : "— pick 2+ <code>.gpx</code>/<code>.fit</code>/<code>.tcx</code> files (any mix)";
+      $("dropText").innerHTML = convert
+        ? "<strong>Drop a file here</strong> or click to browse"
+        : "<strong>Drop files here</strong> or click to browse";
+      $("overlapField").classList.toggle("hidden", convert);
+      $("sortField").classList.toggle("hidden", convert);
+      updateActionLabel();
+    }
+
+    $("mode").querySelectorAll("button").forEach((b) => {
+      b.addEventListener("click", () => {
+        if (b.dataset.mode === mode) return;
+        mode = b.dataset.mode;
+        try { localStorage.setItem("fitmerge-mode", mode); } catch (e) {}
+        // Start fresh: a multi-file merge selection isn't a valid convert input.
+        filesInput.value = "";
+        renderFileList();
+        $("result").classList.add("hidden");
+        setStatus("");
+        syncMode();
+      });
+    });
+    syncMode();
 
     // --- formatting helpers -------------------------------------------
     const fmtDur = (s) => {
@@ -1169,11 +1226,13 @@
     }
 
     async function doMerge() {
-      const files = [...filesInput.files];
-      if (files.length === 0) { setStatus("Pick at least one file.", "err"); return; }
+      const convert = mode === "convert";
+      let files = [...filesInput.files];
+      if (files.length === 0) { setStatus(convert ? "Pick a file to convert." : "Pick at least one file.", "err"); return; }
+      if (convert) files = files.slice(0, 1); // convert is one file in, one out
 
       mergeBtn.disabled = true;
-      setStatus("Merging…");
+      setStatus(convert ? "Converting…" : "Merging…");
       try {
         const inputs = await Promise.all(files.map(async (f) => ({
           name: f.name,
@@ -1190,7 +1249,16 @@
         });
         if (!res.ok) { setStatus(res.error, "err"); return; }
         renderResult(res);
-        setStatus(`Merged ${files.length} file(s) → ${res.summary.records} records.`, "ok");
+        if (convert) {
+          // Name the converted file after its source (ride.fit -> ride.gpx).
+          const nice = files[0].name.replace(/\.[^.]+$/, "") + "." + outputFormat;
+          const dl = $("download");
+          dl.download = nice;
+          dl.querySelector("span").textContent = "Download " + nice;
+        }
+        setStatus(convert
+          ? `Converted ${files[0].name} → ${outputFormat.toUpperCase()} (${res.summary.records} records).`
+          : `Merged ${files.length} file(s) → ${res.summary.records} records.`, "ok");
       } catch (e) {
         setStatus("Error: " + e.message, "err");
       } finally {
@@ -1202,7 +1270,7 @@
     window.onFitmergeReady = () => {
       document.body.classList.remove("loading");
       mergeBtn.disabled = false;
-      mergeBtn.textContent = "Merge activities";
+      updateActionLabel();
       $("version").textContent = "fitmerge " + fitmerge.version;
       setStatus("Ready.");
     };

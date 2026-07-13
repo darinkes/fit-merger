@@ -6,7 +6,9 @@ ascent/descent, moving time, elapsed time, average/max speed, heart rate — so 
 merged file's totals faithfully describe the combined track.
 
 Typical use: stitching a multi-part or multi-day activity (a ride split across
-several files, a tour recorded day by day) back into one file.
+several files, a tour recorded day by day) back into one file. Give it a single
+input to simply **convert** between formats (e.g. FIT → GPX); the summaries are
+recomputed either way. The browser UI exposes this as a Merge / Convert switch.
 
 **🌐 Try it in your browser (no install): <https://darinkes.github.io/fit-merger/>**
 — the same engine compiled to WebAssembly; your files never leave the page.
