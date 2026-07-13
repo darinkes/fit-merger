@@ -691,7 +691,16 @@
       renderFileList();
     }
 
-    let dragIdx = null;
+    // Pointer-based reorder (works with mouse and touch, unlike HTML5 drag).
+    let rowDrag = null; // { from, pointerId }
+    const rowIndexAtY = (y) => {
+      const rows = [...$("filelist").children];
+      for (let i = 0; i < rows.length; i++) {
+        const r = rows[i].getBoundingClientRect();
+        if (y < r.top + r.height / 2) return i;
+      }
+      return rows.length - 1;
+    };
     function renderFileList() {
       const list = $("filelist");
       list.innerHTML = "";
@@ -699,9 +708,8 @@
       selectedFiles.forEach((f, i) => {
         const row = document.createElement("div");
         row.className = "filerow";
-        row.draggable = mode !== "convert";
         row.innerHTML =
-          `<span class="fhandle" aria-hidden="true">⠿</span>` +
+          `<span class="fhandle" aria-hidden="true" title="Drag to reorder">⠿</span>` +
           `<span class="fnum">${i + 1}</span>` +
           `<span class="fname" title="${f.name}">${f.name}</span>` +
           `<span class="fsum">${fileSummaries.get(f) || ""}</span>`;
@@ -711,18 +719,32 @@
         rm.addEventListener("click", () => { selectedFiles.splice(i, 1); renderFileList(); });
         row.appendChild(rm);
         if (mode !== "convert") {
-          row.addEventListener("dragstart", (e) => { dragIdx = i; row.classList.add("dragging"); e.dataTransfer.effectAllowed = "move"; });
-          row.addEventListener("dragend", () => { dragIdx = null; [...list.children].forEach((c) => c.classList.remove("dragging", "dragover")); });
-          row.addEventListener("dragover", (e) => { e.preventDefault(); row.classList.add("dragover"); });
-          row.addEventListener("dragleave", () => row.classList.remove("dragover"));
-          row.addEventListener("drop", (e) => {
-            e.preventDefault(); row.classList.remove("dragover");
-            if (dragIdx === null || dragIdx === i) return;
-            const [moved] = selectedFiles.splice(dragIdx, 1);
-            selectedFiles.splice(i, 0, moved);
-            $("sort").checked = false; // a manual order overrides start-time sorting
-            renderFileList();
+          const handle = row.querySelector(".fhandle");
+          handle.addEventListener("pointerdown", (e) => {
+            e.preventDefault();
+            rowDrag = { from: i, pointerId: e.pointerId };
+            handle.setPointerCapture(e.pointerId);
+            row.classList.add("dragging");
           });
+          handle.addEventListener("pointermove", (e) => {
+            if (!rowDrag || rowDrag.pointerId !== e.pointerId) return;
+            const over = rowIndexAtY(e.clientY);
+            [...list.children].forEach((c, j) => c.classList.toggle("dragover", j === over && j !== rowDrag.from));
+          });
+          const finish = (e) => {
+            if (!rowDrag || rowDrag.pointerId !== e.pointerId) return;
+            const { from } = rowDrag;
+            const over = rowIndexAtY(e.clientY);
+            rowDrag = null;
+            if (over !== from) {
+              const [moved] = selectedFiles.splice(from, 1);
+              selectedFiles.splice(over, 0, moved);
+              $("sort").checked = false; // a manual order overrides start-time sorting
+            }
+            renderFileList();
+          };
+          handle.addEventListener("pointerup", finish);
+          handle.addEventListener("pointercancel", finish);
         }
         list.appendChild(row);
       });
