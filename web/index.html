@@ -608,6 +608,12 @@
     let outputFormat = "fit";
     let downloadURL = null;
 
+    // Build version, stamped at deploy time (pages.yml / Dockerfile.web); "dev"
+    // locally. Shown eagerly so the footer version doesn't wait on the lazily
+    // loaded ~6 MB wasm (which only initialises on first file select / merge).
+    const BUILD_VERSION = "dev";
+    $("version").textContent = "fitmerge " + BUILD_VERSION;
+
     // --- theme toggle -------------------------------------------------
     const root = document.documentElement;
     const prefersDark = () => window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -1562,7 +1568,6 @@
       if (wasmReady) return wasmReady;
       wasmReady = new Promise((resolve, reject) => {
         window.onFitmergeReady = () => {
-          $("version").textContent = "fitmerge " + fitmerge.version;
           resolve();
         };
         (async () => {
